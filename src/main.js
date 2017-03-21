@@ -4,14 +4,17 @@ import Vue from 'vue'
 import Vuetify from 'vuetify'
 import App from './App'
 import router from './router'
+import store from './store'
 
 Vue.config.productionTip = false
 
+// Use Vuetify for making nice looking components, etc.
 Vue.use(Vuetify)
 
 /* eslint-disable no-new */
 new Vue({
   el: '#app',
+  store,
   router,
   template: '<App/>',
   components: { App }

@@ -21,7 +21,17 @@
     data() {
       return {
 	modal: false
-      } 
+      }
+    },
+    methods: {
+      crime() {
+        return 'punsishment'
+      }
+      
+    },
+     
+    mounted() {
+      
     }
   }
 </script>
