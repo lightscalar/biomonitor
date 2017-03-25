@@ -1,0 +1,79 @@
+Problem in main loop.
+Traceback (most recent call last):
+  File "/Users/mjl/local_dev/biomonitor/server/logtest.py", line 12, in <module>
+    1/0
+ZeroDivisionError: division by zero
+Problem in main loop.
+Traceback (most recent call last):
+  File "/Users/mjl/local_dev/biomonitor/server/logtest.py", line 13, in <module>
+    1/0
+ZeroDivisionError: division by zero
+Problem in main loop.
+Traceback (most recent call last):
+  File "/Users/mjl/local_dev/biomonitor/server/logtest.py", line 13, in <module>
+    1/0
+ZeroDivisionError: division by zero
+ > A problem occurred in the BioDriver!
+Traceback (most recent call last):
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 490, in read
+    'device reports readiness to read but returned no data '
+serial.serialutil.SerialException: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 48, in run
+    print(ser.readline())
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 497, in read
+    raise SerialException('read failed: {}'.format(e))
+serial.serialutil.SerialException: read failed: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+ > A problem occurred in the BioDriver!
+Traceback (most recent call last):
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 490, in read
+    'device reports readiness to read but returned no data '
+serial.serialutil.SerialException: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 48, in run
+    print(ser.readline())
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 497, in read
+    raise SerialException('read failed: {}'.format(e))
+serial.serialutil.SerialException: read failed: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+ > A problem occurred in the BioDriver!
+Traceback (most recent call last):
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 490, in read
+    'device reports readiness to read but returned no data '
+serial.serialutil.SerialException: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 43, in run
+    self.connect()
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 65, in connect
+    if self.ping(port):
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 75, in ping
+    output = ser.readline()
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 497, in read
+    raise SerialException('read failed: {}'.format(e))
+serial.serialutil.SerialException: read failed: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+ > A problem occurred in the BioDriver!
+Traceback (most recent call last):
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 490, in read
+    'device reports readiness to read but returned no data '
+serial.serialutil.SerialException: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 43, in run
+    self.connect()
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 65, in connect
+    if self.ping(port):
+  File "/Users/mjl/local_dev/biomonitor/server/device.py", line 75, in ping
+    output = ser.readline()
+  File "/Users/mjl/anaconda3/lib/python3.5/site-packages/serial/serialposix.py", line 497, in read
+    raise SerialException('read failed: {}'.format(e))
+serial.serialutil.SerialException: read failed: device reports readiness to read but returned no data (device disconnected or multiple access on port?)

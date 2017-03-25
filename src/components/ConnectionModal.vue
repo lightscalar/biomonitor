@@ -6,21 +6,26 @@
 	  device_hub
 	</v-icon>
 	<v-spacer/>
-	  Connect
+	  <div v-if='devicePort'>
+	    {{devicePort}}
+	  </div>
+	  <div v-else>
+	    Attach Device
+	  </div>
 	</v-btn>
 	<v-card>
 	  <v-card-text>
-	    <h2 class="title primary--text">Connect to a biomonitor</h2>
+	    <h2 class="title primary--text">Select Device</h2>
 	  </v-card-text>
 	  <v-card-text class="subheading grey--text">
 
 	    <v-select 
-		v-bind:items="states"
-		v-model="port"
-		label="Select Serial Port"
+		v-bind:items="availableDevices"
+		v-model="selectedDevice"
+		label="Select Device"
+		v-on:change='didIt()'
 		light
 		single-line/>
-
 
 	    </v-card-text>
 	  <v-card-row actions>
@@ -32,12 +37,12 @@
 	      </v-icon>
 	      Cancel
 	    </v-btn>
-	    <v-btn flat v-on:click.native="modal=false" 
+	    <v-btn flat v-on:click.native="attachDevice" 
 		class="primary--text">
 	      <v-icon class="mr-2">
 	        done
 	      </v-icon> 
-	      Connect
+	      Attach
 	    </v-btn>
 	  </v-card-row>
 	</v-card>
@@ -56,17 +61,29 @@
     data() {
       return {
 	modal: false,
-	states: [{text:'/dev/tty.usbserial-FT9J9DNE'}, {text: '/dev/tty.usbserial-FH9H9DNF'}],
-	port: {}
+	selectedDevice: null
       }	
     },
 
+    computed: {
+      availableDevices() {
+	var devices = this.$store.state.deviceStatus.availableDevices
+	return utils.itemize(devices)
+      },
+      devicePort() {
+	return this.$store.state.devicePort 
+      }
+    },
+
     methods: {
-      	
+      attachDevice() {
+	this.$store.commit('attachDevice', this.selectedDevice.text)
+	this.modal = false
+      }  	
     },
 
     mounted() {
-      	
+
     }
   
   }
