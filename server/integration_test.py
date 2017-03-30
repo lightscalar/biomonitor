@@ -26,7 +26,6 @@ class Series(object):
         self.v = []
 
     def push(self, timestamp, value):
-        # self.t.append(unix_time_in_microseconds()/1e6)
         self.t.append(timestamp)
         self.v.append(value)
 
@@ -34,7 +33,7 @@ class Series(object):
 if __name__ == '__main__':
 
     # This is it, folks. Open up the biomonitor. Read data to database.
-    board = BioDriver()
+    board = BioBoard()
     db = connect_to_database()
     
     session = { 'name':'Dialysis', 
@@ -46,14 +45,17 @@ if __name__ == '__main__':
     obj = Stream()
 
     board.start()               # start collecting from serial port
+    sleep(1)                    # give 'er time to connect 
     board.stream_to(obj)        # start writing to database
-    sleep(3)                    # wait for a bit
+    sleep(3)                    # wait for a bit, collect some data
     board.stop_stream()         # stop writing
     board.kill()                # close serial connection
 
+    # Note that if the board never connects, we'll have no data!
     t = np.array(obj.time_series[1].t)
     v = np.array(obj.time_series[1].v)
 
+    # Plot some data for sanity purposes.
     plt.close('all')
     plt.ion()
     plt.figure(100)

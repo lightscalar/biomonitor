@@ -1,14 +1,13 @@
-import numpy as np
-import logging
-from serial_lib import *
-import serial
 import threading
 from time import sleep, time
-from database import Segment
+import logging
+import numpy as np
+import serial
+from serial_lib import *
 import re
 
 
-class BioDriver(threading.Thread):
+class BioBoard(threading.Thread):
     '''Direct connection to the Biomonitor Serial port.'''
     BIOMONITOR_REGEX = r"(B1)\s*(\d*)\s*(\w{0,8})\s*(\w*)"
 
@@ -32,7 +31,7 @@ class BioDriver(threading.Thread):
         self.port = port
         self.baud_rate = baud_rate
         self.go = True
-        self.do_stream_data = False
+        self.do_stream = False
         self.COV_FACTOR = 2.5 / (2**24-1)
 
     def run(self):
@@ -81,7 +80,7 @@ class BioDriver(threading.Thread):
             return ((parsed) and (parsed.group(1) == 'B1'))
 
     @property
-    def is_alive(self):
+    def is_active(self):
         return self.isAlive()
 
     @property
