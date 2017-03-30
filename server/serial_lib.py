@@ -33,11 +33,11 @@ def read_data(ser):
             except:
                 pass
             try: # voltage value present?
-                value = int(parsed.group(3),16)
+                value = int(parsed.group(3), 16)
             except:
                 pass
             try: # timestamp present?
-                timestamp = int(parsed.group(4),16)
+                timestamp = int(parsed.group(4), 16)
             except:
                 pass
     return (channel_number, timestamp, value)

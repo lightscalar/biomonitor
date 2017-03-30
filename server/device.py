@@ -1,22 +1,22 @@
 import numpy as np
 import logging
 from serial_lib import *
-import serial 
+import serial
 import threading
 from time import sleep, time
+from database import Segment
 import re
-from ipdb import set_trace as debug
 
 
 # Set the log level for the device connections, etc.
-LOG_LEVEL = logging.INFO 
- 
+LOG_LEVEL = logging.INFO
+
 
 class BioDriver(threading.Thread):
     '''Direct connection to the Biomonitor Serial port.'''
     BIOMONITOR_REGEX = r"(B1)\s*(\d*)\s*(\w{0,8})\s*(\w*)"
 
-    def __init__(self, port=None, baud_rate=921600):
+    def __init__(self, port=None, baud_rate=921600, dbase=None):
         '''Create a new thread that will communicate with the biomonitor.
         INPUTS
             port - string
@@ -24,6 +24,9 @@ class BioDriver(threading.Thread):
                 for available USB ports and check them.
             baud_rate - int
                 The serial port's expected baud rate.
+            dbase - int
+                A database management object. If you want to stream to a 
+                database, you must supply one of these.
         '''
         # Connect to the device.
         logging.basicConfig(level=LOG_LEVEL)
@@ -34,13 +37,16 @@ class BioDriver(threading.Thread):
         self.port = port
         self.baud_rate = baud_rate
         self.go = True
-        self.start_time = time() 
+        self.do_stream_data = False
+        self.dbase = dbase # instance of DatabaseEngine
+        self.segment = Segment()
 
     def run(self):
         '''This is the main loop of the thread.'''
         self.logger.info(' > Looking for biomonitor.') 
         try:
             while self.go: # main loop
+                
                 # Attempt to connect to the biomonitor!
                 while (not self.is_connected):
                     self.connect()
@@ -52,15 +58,14 @@ class BioDriver(threading.Thread):
                     while (self.is_connected and self.go):
                         self.collect(ser)
 
-            # And we're leaving min run loop & the thread, honorably.
+            # And we're leaving main run loop & the thread, honorably.
             self.info(' > Closing BioDriver. Bye!')
         except:
             # Something went sideways. But we'll exit the thread.
-            self.logger.exception(' > A problem occurred in\
-                    the BioDriver! Closing down.')
+            self.logger.exception(' > BioDriver Critical Error! Closing down.')
 
     def kill(self):
-        '''Kill this thread. With moderate prejudice.'''
+        '''Kill this thread, with moderate prejudice.'''
         self.go = False
 
     def connect(self):
@@ -76,7 +81,6 @@ class BioDriver(threading.Thread):
 
     def ping(self, port):
         '''Ping the serial port. See if a legit biomonitor lives there.'''
-        # for attempts in range(10):
         with serial.Serial(port, self.baud_rate, timeout=1) as ser:
             output = ser.readline()
             parsed = re.search(BIOMONITOR_REGEX, str(output))
@@ -92,8 +96,17 @@ class BioDriver(threading.Thread):
 
     def collect(self, ser):
         '''Collect data from current serial connection.'''
-        # (c, t, v) = read_data(ser)
-        self.data = read_data(ser)
+        channel, timestamp, value = read_data(ser)
+        self.segment.push(channel, timestamp, value)
+
+    def stream_to(self, session):
+        '''Start saving data to specified filename via a time series object.'''
+        self.do_stream = True
+
+        pass
+
+    def stop_stream(self):
+        self.do_stream_data = False
 
 
 def status_message():
