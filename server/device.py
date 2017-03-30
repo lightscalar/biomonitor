@@ -41,7 +41,7 @@ class BioBoard(threading.Thread):
             while self.go: # main loop
                 
                 # Attempt to connect to the biomonitor!
-                while (not self.is_connected):
+                while (not self.is_connected) and (self.go):
                     self.connect()
 
                 # We're connected, so open that serial port up!
