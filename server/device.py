@@ -8,15 +8,11 @@ from database import Segment
 import re
 
 
-# Set the log level for the device connections, etc.
-LOG_LEVEL = logging.INFO
-
-
 class BioDriver(threading.Thread):
     '''Direct connection to the Biomonitor Serial port.'''
     BIOMONITOR_REGEX = r"(B1)\s*(\d*)\s*(\w{0,8})\s*(\w*)"
 
-    def __init__(self, port=None, baud_rate=921600, dbase=None):
+    def __init__(self, port=None, baud_rate=921600, verbose=logging.INFO):
         '''Create a new thread that will communicate with the biomonitor.
         INPUTS
             port - string
@@ -24,26 +20,24 @@ class BioDriver(threading.Thread):
                 for available USB ports and check them.
             baud_rate - int
                 The serial port's expected baud rate.
-            dbase - int
-                A database management object. If you want to stream to a 
-                database, you must supply one of these.
+            verbose - int
+                Set the logging level of the connection. Default is INFO.
         '''
         # Connect to the device.
-        logging.basicConfig(level=LOG_LEVEL)
-        self.logger = logging.getLogger(__name__)
-        self.info = self.logger.info
+        logging.basicConfig(level=verbose)
+        self.log = logging.getLogger(__name__)
+        self.info = self.log.info
         threading.Thread.__init__(self)
         self._is_connected = False
         self.port = port
         self.baud_rate = baud_rate
         self.go = True
         self.do_stream_data = False
-        self.dbase = dbase # instance of DatabaseEngine
-        self.segment = Segment()
+        self.COV_FACTOR = 2.5 / (2**24-1)
 
     def run(self):
         '''This is the main loop of the thread.'''
-        self.logger.info(' > Looking for biomonitor.') 
+        self.log.info(' > Looking for biomonitor.') 
         try:
             while self.go: # main loop
                 
@@ -61,8 +55,8 @@ class BioDriver(threading.Thread):
             # And we're leaving main run loop & the thread, honorably.
             self.info(' > Closing BioDriver. Bye!')
         except:
-            # Something went sideways. But we'll exit the thread.
-            self.logger.exception(' > BioDriver Critical Error! Closing down.')
+            # Something went sideways. But we'll cleanly exit the thread.
+            self.log.exception(' > BioDriver Critical Error! Closing down.')
 
     def kill(self):
         '''Kill this thread, with moderate prejudice.'''
@@ -97,72 +91,23 @@ class BioDriver(threading.Thread):
     def collect(self, ser):
         '''Collect data from current serial connection.'''
         channel, timestamp, value = read_data(ser)
-        self.segment.push(channel, timestamp, value)
+        if self.do_stream and (channel in self.stream.channels):
+            ts = timestamp/1e6 + self.time_offset
+            vl = value * self.COV_FACTOR
+            self.stream.time_series[channel].push(ts, vl)
 
-    def stream_to(self, session):
+    def stream_to(self, stream):
         '''Start saving data to specified filename via a time series object.'''
+
+        # Specify a streamable object (like a session, for example).
+        self.time_offset = time()
+        self.stream = stream
+
+        # Start the collection process.
+        self.log.info(' > Starting to stream data to database.')
         self.do_stream = True
 
-        pass
-
     def stop_stream(self):
-        self.do_stream_data = False
-
-
-def status_message():
-    message = {}
-    message['isConnected'] = False
-    message['statusMessage'] = 'Nothing to report'
-    message['availableDevices'] = []
-    return message
-
-
-def check_device_connection(status_collection):
-    '''Connect to the biomonitor, if present. Update the library's status.
-    INPUTS
-        status_collection - object
-            The status collection of the Mongo database.
-    '''
-    # Clear out any existing status messages.
-    status_collection.delete_many({})
-    status_dict = status_message()
-
-    # Verify that something is on the port.
-    available_devices = find_serial_devices()
-    status_dict['availableDevices'] = available_devices
-    if len(available_devices) == 0:
-        status_dict['isConnected'] = False
-        status_dict['statusMessage'] = 'Nothing connected to USB port!'
-    else:
-        status_dict['isConnected'] = True
-        if len(available_devices)>1:
-            status_dict['statusMessage'] = '{:d} devices available on USB.'\
-                    .format(len(available_devices))
-        else:
-            status_dict['statusMessage'] = 'One device available on USB.'
-
-    # Update the MongoDB.
-    status_collection.insert_one(status_dict)
-
-    # Return for convenience.
-    return status_dict
-
-
-if __name__=='__main__':
-    # from pymongo import MongoClient
-
-    # # Connect to the MongoDB!
-    # client = MongoClient()
-    # db = client['biomonitor_dev']
-    # status = db.status
-
-    # # Let's check the connection.
-    # out = check_device_connection(status) 
-    
-    d = BioDriver()
-    d.start()
-
-    
-    
-        
-    
+        ''' Turn stream to database off.'''
+        self.info(' > Stopping data collection.')
+        self.do_stream = False
