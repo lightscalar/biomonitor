@@ -14,7 +14,6 @@ class ModelController(object):
         self.db = database
         self.model_name = model_name
         self.collection = self.db[model_name]
-        self.sideload = {}
 
         # Set up logging.
         log.basicConfig(level=verbose)
@@ -122,13 +121,13 @@ class SessionController(ModelController):
         for channel in self.model['channels']:
 
             # What is the physical channel number?
-            phys_chan = channel['physical_channel']
-            query = {'owner': self._id, 'physical_channel': phys_chan}
+            pchn = channel['physical_channel']
+            query = {'owner': self._id, 'physical_channel': pchn}
             
             # Find time series corresponding to the channel.
-            series_id = self.db.time_series.find_one(query, {'_id':1})
-            self._series[phys_chan] = TimeSeriesController(self.db,\
-                                                           _id=q(series_id))
+            s_id = self.db.time_series.find_one(query, {'_id':1})
+            self._series[pchn] = TimeSeriesController(self.db, _id=q(s_id))
+
 
     def create(self, data):
         '''Create a new data session.'''
