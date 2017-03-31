@@ -21,7 +21,8 @@ class ModelController(object):
         self.log = log.getLogger(__name__)
 
         if (data is None) and (_id is None):
-            raise ValueError('Either data or _id must be populated.')
+            # If nothing is specified, let's load all session models!
+            self._list()
 
         if (data is not None):
             # Default is to create a new session.
@@ -41,7 +42,8 @@ class ModelController(object):
 
     def _list(self):
         '''Return a collection of all models in the database.'''
-        return list(self.collection.find())
+        self.models = list(self.collection.find())
+        return self.models
 
 
     def _create(self, data):
@@ -101,6 +103,7 @@ class SessionController(ModelController):
     '''Handle session creation, updating, and so on.'''
 
     def __init__(self, database, data=None, _id=None):
+        '''Initialize the model as a sessions object.'''
         ModelController.__init__(self, 'sessions', database, data=data,\
                 _id=_id)
 
@@ -108,35 +111,41 @@ class SessionController(ModelController):
     def read(self):
         '''Read a specific session from the database.'''
         self._read()
-        self.sideload_time_series()
+        self.load_series()
 
 
-    def sideload_time_series(self):
-        for chn in self.model['channels']:
-            _id = chn['time_series_id']
-            self.sideload['time_series'][chn['physical_channel']] =\
-                    TimeSeriesController(self.db, _id=_id)
+    def load_series(self):
+        '''Add channel TimeSeries objects to dictionary indexed by physical
+           channel.'''
+        # Loop over the declared channels.
+        self._series = {}
+        for channel in self.model['channels']:
 
+            # What is the physical channel number?
+            phys_chan = channel['physical_channel']
+            query = {'owner': self._id, 'physical_channel': phys_chan}
+            
+            # Find time series corresponding to the channel.
+            series_id = self.db.time_series.find_one(query, {'_id':1})
+            self._series[phys_chan] = TimeSeriesController(self.db,\
+                                                           _id=q(series_id))
 
     def create(self, data):
         '''Create a new data session.'''
         self._create(data)
 
         # Add a time series for each channel in the session.
-        self.sideload['time_series'] = {}
         for channel in self.model['channels']:
             # Create a new time series for each channel.
             channel['owner'] = self._id
             ts = TimeSeriesController(self.db, data=channel)
-            channel['time_series_id'] = ts._id
-        self._update()
-        self.sideload_time_series()
+        self.load_series()
 
 
     @property
     def time_series(self):
-        return{k: self.sideload['time_series'][k] \
-                for k in self.sideload['time_series'].keys()}
+        return self._series
+
 
     @property
     def channels(self):
@@ -145,6 +154,7 @@ class SessionController(ModelController):
 
 
 class TimeSeriesController(ModelController):
+    '''Model time series data. Handle segment creation, filtering, etc.'''
 
     def __init__(self, database, data=None, _id=None):
         ModelController.__init__(self, 'time_series', database, data=data,\
@@ -340,13 +350,15 @@ class SegmentController(ModelController):
 
 if __name__=='__main__':
 
+    # Connect to the database.
+    database = connect_to_database()
+
     if True: 
-        client = MongoClient()
-        database = client['biomonitor_dev']
         session = {'name':'Dialysis', 'channels': [{'physical_channel': 1,\
                 'description': 'PVDF Sensor'}]}
         s = SessionController(database, data=session)
 
+        # Simulate a data collection.
         duration = 5
         sampling_rate = 500 # Hz
         sampling_dt = 1/sampling_rate
