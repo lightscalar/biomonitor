@@ -54,7 +54,7 @@ class BioBoard(threading.Thread):
             # And we're leaving main run loop & the thread, honorably.
             self.info(' > Closing BioDriver. Bye!')
         except:
-            # Something went sideways. But we'll cleanly exit the thread.
+            # Something went sideways. But we'll still cleanly exit the thread.
             self.log.exception(' > BioDriver Critical Error! Closing down.')
 
     def kill(self):
