@@ -4,12 +4,10 @@ import api from '../api/connect'
 Vue.use(Vuex)
 
 var defaultStatus = {isConnected: false,
-		   statusMessage: 'Checking for devices.',
-		   availableDevices: []}
-var defaultChannels = [
-  // {channelDescription: 'PPG Sensor', physicalChannel: 0},
-  {channelDescription: 'PVDF Sensor', physicalChannel: 1, id:0}
-]
+		     statusMessage: 'Looking for biomonitor',
+		     devicePort: 'UNAVAILABLE'}
+var defaultChannels = [{channelDescription: 'PVDF Sensor',
+			physicalChannel: 1, id:0}]
 var currentSession = {}
 var sessionList = []
 
@@ -17,7 +15,6 @@ export default new Vuex.Store({
 
   state: {
     deviceStatus: defaultStatus,
-    devicePort: null,
     defaultChannels: defaultChannels,
     currentSession: currentSession,
     sessionList: sessionList

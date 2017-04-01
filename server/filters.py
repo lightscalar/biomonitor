@@ -9,9 +9,9 @@ def lowpass(t, y, filter_order=5, freq_cutoff=10, zi=[]):
     '''Lowpass Butterworth filter the signal.'''
 
     # Determine the sampling rate of the supplied data.
-    fs = 1/np.median(np.diff(t)*1e-6)
+    fs = 1/np.median(np.diff(t))
     nyquist=0.5*fs
-    f_low = 12/nyquist
+    f_low = freq_cutoff/nyquist
 
     # Create a butterworth filter
     a,b  = butter(filter_order, f_low, 'low', analog=False)
@@ -30,8 +30,8 @@ def lowpass(t, y, filter_order=5, freq_cutoff=10, zi=[]):
 if __name__ == '__main__':
 
     # Load some data. 
-    v = Vessel('good_collection.dat')
-    t = v.t
+    v = Vessel('data/good_collection.dat')
+    t = v.t * 1e-6
     y = v.y
     N = len(t)
     half = int(np.floor(N/2))
@@ -43,13 +43,15 @@ if __name__ == '__main__':
     y1 = y[half+1:]
 
     filter_order = 4
-    y0_filt,zi = lowpass(t0, y0, filter_order=filter_order, freq_cutoff=6)
-    y1_filt,zi = lowpass(t1, y1, filter_order, freq_cutoff=8, zi=zi)
+    yf, zo = lowpass(t0, y0)
+    # y0_filt,zi = lowpass(t0, y0, filter_order=filter_order, freq_cutoff=6)
+    # y1_filt,zi = lowpass(t1, y1, filter_order, freq_cutoff=8, zi=zi)
 
     import pylab as plt
     plt.ion()
     plt.close('all')
     plt.figure(100)
-    plt.plot(t0, y0_filt)
-    plt.plot(t1, y1_filt)
+    plt.plot(t0, yf)
+    # plt.plot(t0, y0_filt)
+    # plt.plot(t1, y1_filt)
 

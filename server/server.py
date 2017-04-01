@@ -1,30 +1,56 @@
+import sys
 import numpy as np
-from pymongo import MongoClient
-from flask import Flask, request
-from flask_restful import abort, Api, Resource
-from flask_restful import reqparse
-from flask_cors import *
-from time import sleep, time
+import signal
+import logging
+from gevent.wsgi import WSGIServer
 from database import *
 from device import *
+from flask import Flask, request
+from flask_cors import *
+from flask_restful import abort, Api, Resource, reqparse
+from time import sleep, time
 from ipdb import set_trace as debug
-from biomonitor import send_command
 
 
-# Create a new web server.
+# Configure logging.
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+# Create a RESTFUL web server.
 app = Flask(__name__)
 api = Api(app)
-cors = CORS(app, allow_headers=["Content-Type",\
-        "Access-Control-Allow-Origin", '*'])
-client = MongoClient()
-db = client['biomonitor_dev']
+valid_headers = ['Content-Type', 'Access-Control-Allow-Origin', '*']
+cors = CORS(app, allow_headers=valid_headers)
+        
+# Connect to the Mongo database.
+db = connect_to_database() 
+
+# Connect to the biomonitor.
+board = BioBoard()
+board.start()
+
+# Ensure board is stopped when server is stopped.
+def exit_gracefully(signal, frame):
+    '''When we kill the server (via CTL-C), gracefully close board 
+       connections as well.
+    '''
+    log.info(" > Closing down biomonitor board.")
+    board.kill()
+    sys.exit(0)
+
+
+# Listen for a kill signal. Close down biomonitor connection.
+signal.signal(signal.SIGINT, exit_gracefully)
 
 
 class Status(Resource):
 
     def get(self):
-        status = check_device_connection(db.status)
-        return serialize_mongo(status)
+        # Look at the board. Report its current status.
+        data = {}
+        data['isConnected'] = board.is_connected 
+        data['statusMessage'] = board.status_message 
+        return serialize_mongo(data)
 
     def post(self):
         model = request.json
@@ -79,5 +105,7 @@ api.add_resource(Command, '/command', methods=['POST'])
 if __name__ =='__main__':
 
     # Launch the web server (not suitable for production!
-    app.run(port=1492, debug=True, threaded=True)
+    # app.run(port=1492, debug=True, threaded=True)
+    http_server = WSGIServer(('', 1492), app)
+    http_server.serve_forever()
 

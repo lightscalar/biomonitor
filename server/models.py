@@ -6,6 +6,13 @@ from filters import lowpass
 
 
 class ModelController(object):
+    '''Base class for dealing with models, saving to database, etc.
+    ---
+        This class provides basic CRUD functionality for a Mongo database. The
+        idea is to extend this class to provide model-specific requirements.
+        For example, we can side-load time series on a data session, update
+        time series segments, etc.
+    '''
 
     def __init__(self, model_name, database, data=None, _id=None,\
             verbose=log.INFO):
@@ -99,7 +106,12 @@ class ModelController(object):
 
 
 class SessionController(ModelController):
-    '''Handle session creation, updating, and so on.'''
+    '''Handle session creation, updating, and so on.
+    ----
+        A session refers to a data recording session. A session generally 
+        records data on multiple channels, which are represented by 
+        time series.
+    '''
 
     def __init__(self, database, data=None, _id=None):
         '''Initialize the model as a sessions object.'''
@@ -153,7 +165,13 @@ class SessionController(ModelController):
 
 
 class TimeSeriesController(ModelController):
-    '''Model time series data. Handle segment creation, filtering, etc.'''
+    '''Model time series data. Handle segment creation, filtering, etc.
+    -----
+        A time series is, well, a series of timestamped data values. Because
+        of the limitations of MongoDB document sizes (< 16 MB), a given 
+        time series is actually split up into a sequence of non-overlapping,
+        fixed-length segments. 
+    '''
 
     def __init__(self, database, data=None, _id=None):
         ModelController.__init__(self, 'time_series', database, data=data,\
@@ -173,11 +191,11 @@ class TimeSeriesController(ModelController):
         t,v = [],[]
         segments = self.db.segments
         cursor = segments.find({'owner':self._id, 'is_flushed':True},\
-                               {'vals':1, 'time':1}).\
+                               {'filtered':1, 'time':1}).\
                                sort('min_time', 1)
         # Concatenate segments.
         for seg in cursor:
-            v += seg['vals']
+            v += seg['filtered']
             t += seg['time']
         return (t, v)
 
@@ -257,12 +275,15 @@ class TimeSeriesController(ModelController):
         self.db.segments.update_one(qwrap(self.segment._id),\
                 {'$set':{'filtered': y_filt}})
 
-        # NOTE: BELOW IS SIMPLER, BUT SLOWER?
-        # self._update()
-        # self.segment._update()
-         
 
 class SegmentController(ModelController):
+    ''' A fixed-size document that holds the actual data in a time series.
+    -----
+        A fixed-length segment of a time series collection. Holds the actual
+        data. It must be associated with a time series object. The time series
+        object actually handles the creating, updating, and filtering, and the
+        stitching together of individual segments.
+    '''
 
     def __init__(self, database, _id=None, data=None):
 
