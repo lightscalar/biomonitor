@@ -96,7 +96,7 @@ class BioBoard(threading.Thread):
         with serial.Serial(port, self.baud_rate, timeout=1) as ser:
             output = ser.readline()
             parsed = re.search(BIOMONITOR_REGEX, str(output))
-            return ((parsed) and (parsed.group(1) == 'B1'))
+            return ((parsed) and (parsed.group(1) == 'B1')) # really legit?
 
 
     @property
