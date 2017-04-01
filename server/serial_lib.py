@@ -89,9 +89,9 @@ def serialize(obj, key=None):
         for k,v in obj.items():
             ndict[snake_to_camel(k)] = serialize(v, key=k)
         return ndict
-    else: # convert string _id to ObjectId, etc.
+    else: # Check to see if the bare object needs special processing.
         if (type(obj) is ObjectId) and (re.search(r'(_id)', key)):
-            # Convert into an ObjectId.
+            # Convert the ObjectId to a string so we can push through JSON.
             return str(obj)
         else:
             return obj
