@@ -25,7 +25,7 @@ cors = CORS(app, allow_headers=valid_headers)
 # Connect to the Mongo database.
 db = connect_to_database() 
 
-# Connect to the biomonitor.
+# Connect to a biomonitor.
 board = BioBoard()
 board.start()
 
@@ -44,7 +44,7 @@ signal.signal(signal.SIGINT, exit_gracefully)
 
 
 class Status(Resource):
-
+    '''Return the board connection status.'''
     def get(self):
         # Look at the board. Report its current status.
         data = {}
@@ -57,17 +57,18 @@ class Status(Resource):
 
 
 class Sessions(Resource):
+    '''Handles session creation and listing.'''
 
     def post(self):
-        # Get an existing model.
+        '''Create a new session model.'''
+
+        # Grab data from request.
         session_data = request.json
-        session_data['data'] = {}
-        data_dict = {'values': [], 'timestamps': []}
 
         # Add a place for the data to live.
         for channel in session_data['channels']:
-            channel['physicalChannel'] = str(channel['physicalChannel'])
-            phys_chan = channel['physicalChannel']
+            channel['physical_channel'] =  
+            phys_chan = channel['physical_channel']
             session_data['data'][phys_chan] = data_dict
 
         # Save to the Mongo Database!
@@ -76,36 +77,39 @@ class Sessions(Resource):
                 db.sessions))
 
 class Session(Resource):
+    '''A data recording session resource.'''
 
     def get(self, session_id):
-
-        # Get an existing model.
+        '''Get an existing session model.'''
         session_data = find_document(session_id, db.sessions)
         return serialize_mongo(session_data)
-
-
-class Command(Resource):
-
-    def post(self):
-        # Start doing (or stop doing) something.
-        command_data = request.json
-        command_str = command_data['command']
-        session_id = string_to_obj(command_data['sessionId'])
-        send_command(command_str, session_id, db)
         
 
-# Define our API routes.
+'''Define our API routes.'''
+# Obtain device status.
 api.add_resource(Status, '/status', methods=['GET', 'POST'])
+
+# Session creation and listing.
 api.add_resource(Sessions, '/sessions', methods=['GET', 'POST'])
-api.add_resource(Session, '/session/<session_id>', methods=['GET', 'POST',\
-        'DELETE'])
+
+# Read session, edit session, etc.
+allowed_methods = ['GET', 'POST', 'DELETE']
+api.add_resource(Session, '/session/<session_id>', methods=allowed_methods)
+
+# Command session (deprecated now, I think?)
 api.add_resource(Command, '/command', methods=['POST'])
 
 
 if __name__ =='__main__':
 
-    # Launch the web server (not suitable for production!
-    # app.run(port=1492, debug=True, threaded=True)
-    http_server = WSGIServer(('', 1492), app)
-    http_server.serve_forever()
+    # Launch a webserver.
+    use_production = True
+
+    if use_production:
+        # More suitable for production.
+        http_server = WSGIServer(('', 1492), app)
+        http_server.serve_forever()
+    else:
+        # For debugging purposes.
+        app.run(port=1492, debug=True, threaded=True)
 

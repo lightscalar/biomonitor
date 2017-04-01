@@ -8,14 +8,15 @@ from filters import lowpass
 class ModelController(object):
     '''Base class for dealing with models, saving to database, etc.
     ---
-        This class provides basic CRUD functionality for a Mongo database. The
-        idea is to extend this class to provide model-specific requirements.
-        For example, we can side-load time series on a data session, update
-        time series segments, etc.
+    This class provides basic CRUD functionality for a Mongo database. The
+    idea is to extend this class to provide model-specific requirements.
+    For example, we can side-load time series on a data session, update
+    time series segments, etc.
     '''
 
     def __init__(self, model_name, database, data=None, _id=None,\
             verbose=log.INFO):
+        '''Connect to database. Load or create the model.'''
 
         # We have ourselves a database.
         self.db = database
@@ -155,6 +156,7 @@ class SessionController(ModelController):
 
     @property
     def time_series(self):
+        '''Return the synthesized time series.'''
         return self._series
 
 
@@ -174,6 +176,7 @@ class TimeSeriesController(ModelController):
     '''
 
     def __init__(self, database, data=None, _id=None):
+        '''Create or load the time series.'''
         ModelController.__init__(self, 'time_series', database, data=data,\
                 _id=_id)
 
@@ -370,7 +373,7 @@ class SegmentController(ModelController):
 
 if __name__=='__main__':
 
-    # Connect to the database.
+    '''Simulate connection to a data source.'''
     database = connect_to_database()
 
     if True: 

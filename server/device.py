@@ -99,16 +99,6 @@ class BioBoard(threading.Thread):
             return ((parsed) and (parsed.group(1) == 'B1')) # really legit?
 
 
-    @property
-    def is_active(self):
-        return self.isAlive()
-
-
-    @property
-    def is_connected(self):
-        return self._is_connected
-
-
     def collect(self, ser):
         '''Collect data from current serial connection.'''
         channel, timestamp, value = read_data(ser)
@@ -148,3 +138,15 @@ class BioBoard(threading.Thread):
         else:
             message = 'Searching for biomonitor device.'
         return message
+
+
+    @property
+    def is_active(self):
+        '''Return Boolean indicating whether the thread is alive.'''
+        return self.isAlive()
+
+
+    @property
+    def is_connected(self):
+        '''Returns Boolean indicating whether we're talking to the board.'''
+        return self._is_connected
