@@ -4,6 +4,7 @@ import signal
 import logging
 from gevent.wsgi import WSGIServer
 from database import *
+from models import *
 from device import *
 from flask import Flask, request
 from flask_cors import *
@@ -45,15 +46,14 @@ signal.signal(signal.SIGINT, exit_gracefully)
 
 class Status(Resource):
     '''Return the board connection status.'''
+    
     def get(self):
         # Look at the board. Report its current status.
         data = {}
-        data['isConnected'] = board.is_connected 
-        data['statusMessage'] = board.status_message 
-        return serialize_mongo(data)
-
-    def post(self):
-        model = request.json
+        data['is_connected'] = board.is_connected 
+        data['status_message'] = board.status_message 
+        data['device_port'] = board.port 
+        return serialize(data)
 
 
 class Sessions(Resource):
@@ -63,18 +63,12 @@ class Sessions(Resource):
         '''Create a new session model.'''
 
         # Grab data from request.
-        session_data = request.json
+        data = request.json
+        data = deserialize(data)
+        session = SessionController(db, data=data)
+        debug()
+        return serialize(session.model)
 
-        # Add a place for the data to live.
-        for channel in session_data['channels']:
-            channel['physical_channel'] =  
-            phys_chan = channel['physical_channel']
-            session_data['data'][phys_chan] = data_dict
-
-        # Save to the Mongo Database!
-        current_session = db.sessions.insert_one(session_data)
-        return serialize_mongo(find_document(current_session.inserted_id, \
-                db.sessions))
 
 class Session(Resource):
     '''A data recording session resource.'''
@@ -93,11 +87,11 @@ api.add_resource(Status, '/status', methods=['GET', 'POST'])
 api.add_resource(Sessions, '/sessions', methods=['GET', 'POST'])
 
 # Read session, edit session, etc.
-allowed_methods = ['GET', 'POST', 'DELETE']
-api.add_resource(Session, '/session/<session_id>', methods=allowed_methods)
+# allowed_methods = ['GET', 'POST', 'DELETE']
+# api.add_resource(Session, '/session/<session_id>', methods=allowed_methods)
 
 # Command session (deprecated now, I think?)
-api.add_resource(Command, '/command', methods=['POST'])
+# api.add_resource(Command, '/command', methods=['POST'])
 
 
 if __name__ =='__main__':

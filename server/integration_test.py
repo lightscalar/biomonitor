@@ -27,7 +27,7 @@ class Stream(object):
     def channels(self):
         return [1]
     
-
+    
 class Series(object):
     '''Mock time series object. Minimal API.
     ------

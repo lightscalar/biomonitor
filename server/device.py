@@ -20,9 +20,6 @@ class BioBoard(threading.Thread):
         YMMV.
     '''
 
-    # Define the REGEX for reading data from the biomonitor serial port.
-    BIOMONITOR_REGEX = r"(B1)\s*(\d*)\s*(\w{0,8})\s*(\w*)"
-
     def __init__(self, port=None, baud_rate=921600, verbose=logging.INFO):
         '''Create a new thread that will communicate with the biomonitor.
         INPUTS
@@ -34,18 +31,31 @@ class BioBoard(threading.Thread):
             verbose - int
                 Set the logging level of the connection. Default is INFO.
         '''
+        # We'll run in a separate thread.
+        threading.Thread.__init__(self)
+
         # Connect to the device.
         logging.basicConfig(level=verbose)
         self.log = logging.getLogger(__name__)
         self.info = self.log.info
-        self.bad_data_count = 0
-        threading.Thread.__init__(self)
+
+        # Some variables for handling bad connection detection.
+        self._bad_data_count = 0
+        self._last_read_bad = False
+
+        # Status variables.
         self._is_connected = False
-        self.port = port
-        self.baud_rate = baud_rate
         self.go = True
         self.do_stream = False
+        self._trouble = False
+
+        # Connection variables.
+        self.port = port
+        self.baud_rate = baud_rate
+
+        # Board communications & conversion stuff.
         self.COV_FACTOR = 2.5 / (2**24-1)
+        self.bio_regex = r"(B1)\s*(\d*)\s*(\w{0,8})\s*(\w*)"
 
 
     def run(self):
@@ -94,8 +104,12 @@ class BioBoard(threading.Thread):
     def ping(self, port):
         '''Ping the serial port. See if a legit biomonitor lives there.'''
         with serial.Serial(port, self.baud_rate, timeout=1) as ser:
-            output = ser.readline()
-            parsed = re.search(BIOMONITOR_REGEX, str(output))
+            try:
+                output = ser.readline()
+            except:
+                log.exception(' > Serial connection failed unexpectedly.')
+                output = ''
+            parsed = re.search(self.bio_regex, str(output))
             return ((parsed) and (parsed.group(1) == 'B1')) # really legit?
 
 
@@ -109,6 +123,20 @@ class BioBoard(threading.Thread):
             ts = timestamp/1e6 + self.time_offset
             vl = value * self.COV_FACTOR
             self.stream.time_series[channel].push(ts, vl)
+
+        if (channel is None):
+            self.info(' > Hmm. Not seeing data at the moment...')
+            self._trouble = True
+            if self._last_read_bad:
+                self._bad_data_count += 1
+            self._last_read_bad = True
+            if self._bad_data_count > 1:
+                self._is_connected = False
+                self._trouble = False
+        else: 
+            self._last_read_bad = False
+            self._bad_data_count = 0
+            self._trouble = False
 
 
     def stream_to(self, stream):
@@ -135,6 +163,8 @@ class BioBoard(threading.Thread):
             message = 'Biomonitor device streaming data.'
         elif self.is_connected:
             message = 'Biomonitor device connected.'
+        elif self._trouble:
+            message = 'Hmm. Not seeing data at the moment...'
         else:
             message = 'Searching for biomonitor device.'
         return message
@@ -150,3 +180,10 @@ class BioBoard(threading.Thread):
     def is_connected(self):
         '''Returns Boolean indicating whether we're talking to the board.'''
         return self._is_connected
+
+
+if __name__ == '__main__':
+
+    # Open a connection to the board. Try to start reading some data.
+    board = BioBoard()
+    board.start()

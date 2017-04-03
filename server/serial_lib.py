@@ -4,9 +4,6 @@ from ipdb import set_trace as debug
 from bson import ObjectId
 
 
-BIOMONITOR_REGEX = r"(B1)\s*(\d*)\s*(\w{0,8})\s*(\w*)"
-
-
 def find_serial_devices():
     '''Find serial devices connected to the computer.'''
     
@@ -25,7 +22,8 @@ def find_serial_devices():
 def read_data(ser):
     '''Read data from the biomonitor at serial connection ser.'''
     biomonitor_output = ser.readline()
-    parsed = re.search(BIOMONITOR_REGEX, str(biomonitor_output))
+    bio_regex = r"(B1)\s*(\d*)\s*(\w{0,8})\s*(\w*)"
+    parsed = re.search(bio_regex, str(biomonitor_output))
     channel_number, timestamp, value = None, None, None
     if parsed:
         # We caught something!
@@ -67,11 +65,12 @@ def deserialize(obj, key=None):
     elif (type(obj) is dict): # loop through key,value pairs
         ndict = {}
         for k,v in obj.items():
-            ndict[camel_to_snake(k)] = deserialize(v, key=k)
+            nk = camel_to_snake(k)
+            ndict[nk] = deserialize(v, key=nk)
         return ndict
     else: # convert string _id to ObjectId, etc.
         if (type(obj) is str) and (re.search(r'(_id)', key)):
-            # Convert into an ObjectId.
+            # Convert into an ObjectId so we can search in Mongo!
             return ObjectId(obj)
         else:
             return obj

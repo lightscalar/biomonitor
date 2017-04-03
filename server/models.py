@@ -135,7 +135,7 @@ class SessionController(ModelController):
 
             # What is the physical channel number?
             pchn = channel['physical_channel']
-            query = {'owner': self._id, 'physical_channel': pchn}
+            query = {'owner_id': self._id, 'physical_channel': pchn}
             
             # Find time series corresponding to the channel.
             s_id = self.db.time_series.find_one(query, {'_id':1})
@@ -149,7 +149,7 @@ class SessionController(ModelController):
         # Add a time series for each channel in the session.
         for channel in self.model['channels']:
             # Create a new time series for each channel.
-            channel['owner'] = self._id
+            channel['owner_id'] = self._id
             ts = TimeSeriesController(self.db, data=channel)
         self.load_series()
 
@@ -193,7 +193,7 @@ class TimeSeriesController(ModelController):
         # Initialize time and value lists.
         t,v = [],[]
         segments = self.db.segments
-        cursor = segments.find({'owner':self._id, 'is_flushed':True},\
+        cursor = segments.find({'owner_id':self._id, 'is_flushed':True},\
                                {'filtered':1, 'time':1}).\
                                sort('min_time', 1)
         # Concatenate segments.
@@ -206,7 +206,7 @@ class TimeSeriesController(ModelController):
     def load_segment(self):
         '''Load the latest segment.'''
         latest = self.db.segments.\
-                find({'owner':self._id}, {'_id':1}).\
+                find({'owner_id':self._id}, {'_id':1}).\
                 sort([('created_at', -1)]).\
                 limit(-1).next()
 
@@ -227,7 +227,7 @@ class TimeSeriesController(ModelController):
     def add_segment(self, current_segment=None):
         '''Add a new segment to the data series.'''
         segment_data = {}
-        segment_data['owner'] = self._id
+        segment_data['owner_id'] = self._id
         segment_data['segment_size'] = self.model['segment_size']
         segment = SegmentController(self.db, data=segment_data)
         self._update()
@@ -237,7 +237,7 @@ class TimeSeriesController(ModelController):
     @property
     def required_attributes(self):
         '''We need these guys to do anything useful.'''
-        return ['owner', 'description', 'physical_channel']
+        return ['owner_id', 'description', 'physical_channel']
 
 
     def push(self, timestamp, value):
