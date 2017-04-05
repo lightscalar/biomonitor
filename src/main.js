@@ -6,9 +6,6 @@ import App from './App'
 import router from './router'
 import store from './store'
 import './utils/utilities'
-import Chart from 'chart.js'
-
-window.Chart = Chart
 
 // Disable annoying "tips".
 Vue.config.productionTip = false
@@ -27,3 +24,5 @@ var app = new Vue({
 
 // For programmatic navigation in the store.
 window.router = app.$router
+
+

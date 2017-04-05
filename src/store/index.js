@@ -4,22 +4,38 @@ import api from '../api/connect'
 Vue.use(Vuex)
 
 var defaultStatus = {isConnected: false,
-		     statusMessage: 'Looking for biomonitor',
+		     statusMessage: 'Cannot find webserver.',
 		     devicePort: 'UNAVAILABLE'}
-var defaultChannels = [{channelDescription: 'PVDF Sensor',
+var defaultChannels = [{description: 'PVDF Sensor',
 			physicalChannel: 1, id:0}]
 var currentSession = {}
 var sessionList = []
 
 export default new Vuex.Store({
 
+  // ------ STATE VARIABLES --------------------
   state: {
     deviceStatus: defaultStatus,
     defaultChannels: defaultChannels,
     currentSession: currentSession,
-    sessionList: sessionList
+    sessionList: sessionList,
+    currentData: []
   },
 
+  // -------- GETTERS --------------------------
+  getters: {
+    maxTime: state => {
+      if (state.currentData.length>0) {
+	var len = state.currentData[0].data.length
+	if (len>0) {
+	  return state.currentData[0].data[len-1][0]
+	}
+      }
+      return 0
+    }
+  },
+
+  // ------ MUTATIONS ------------------------
   mutations: {
     setStatus(state, newDeviceStatus) {
       state.deviceStatus = newDeviceStatus 
@@ -29,61 +45,62 @@ export default new Vuex.Store({
     },
     setCurrentSession(state, data) {
       state.currentSession = data 
+    },
+    setSessionList(state, data) {
+      state.sessionList = data
+    },
+    setCurrentData(state, data) {
+      state.currentData = data
     }
   },
 
+  // ------ ACTIONS ------------------------
   actions: {
     checkStatus(context) {
+      // Check biomonitor status.
       api.getStatic('status').then(function(resp) {
 	context.commit('setStatus', resp.data)
-	if (context.state.deviceStatus.availableDevices.length == 1) {
-	  var selectedDevice = context.state.deviceStatus.availableDevices[0]
-	  context.commit('attachDevice', selectedDevice)
-	}
-	if (!context.state.deviceStatus.isConnected) {
-	  router.push({path: '/'})
-	}
       }).catch(function() {
         context.commit('setStatus', defaultStatus)
       })
     },
-
     createSession(context, data) {
+      // Create a new session.
       api.postResource('sessions', data).then(function(resp) {
 	context.commit('setCurrentSession', resp.data)
 	router.push({name: 'session', params: {id: resp.data._id}})
       }) 
     },
-
     getSession(context, id) {
+      // Get a specified session.
       api.getResource('session', id).then(function(resp) {
 	context.commit('setCurrentSession', resp.data)
       })
     },
-
-    startCollection(context) {
-      var command = {
-	command: 'COLLECT', 
-	sessionId: context.state.currentSession._id
-      }
-      api.postResource('command', command).then(function(resp) {
-	// context.commit('deviceStatus', 'COLLECTING')
-      }).catch(function(){
-	// context.commit('deviceStatus', 'IDLE')   
+    listSessions(context) {
+      // List all sessions in database.
+      api.listResource('sessions').then(function(resp) {
+	context.commit('setSessionList', resp.data)
       })
     },
-    stopCollection(context) {
-      var command = {
-	command: 'IDLE', 
-	sessionId: context.state.currentSession._id
-      }
-      api.postResource('command', command).then(function(resp) {
-	// context.commit('deviceStatus', 'COLLECTING')
-      }).catch(function(){
-	// context.commit('deviceStatus', 'IDLE')   
+    deleteSession(context, id) {
+      // Delete the session at /id.
+      api.deleteResource('session', id).then(function(resp) {
+	context.dispatch('listSessions')
+      }) 
+    },
+    sessionCommand(context, data) {
+      // Send a command (data.cmd) to the specified session (data.id).
+      api.putResource('session', data).then(function(resp) {
+      }).catch(function() {
+	console.log('OOPS!')
+      })
+    },
+    updateStream(context, data) {
+      api.streamResource('session', data).then(function(resp) {
+	context.commit('setCurrentData', resp.data)
       })
     }
   }
    
-
 })

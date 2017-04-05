@@ -2,6 +2,7 @@ from glob import glob
 import re
 from ipdb import set_trace as debug
 from bson import ObjectId
+from time import sleep
 
 
 def find_serial_devices():
@@ -16,6 +17,7 @@ def find_serial_devices():
     for device in devices: 
         if re.search(SERIAL_REGEX, device):
             valid_devices.append(device)
+    sleep(1)
     return valid_devices
 
 
@@ -57,12 +59,12 @@ def snake_to_camel(snake):
 
 def deserialize(obj, key=None):
     '''Return object if it is simple; otherwise recursively iterate through.'''
-    if (type(obj) is list): # loop through elements
+    if (type(obj) is list): # loop through elements, if list.
         nlist = []
         for el in obj:
             nlist.append(deserialize(el))
         return nlist
-    elif (type(obj) is dict): # loop through key,value pairs
+    elif (type(obj) is dict): # loop through key,value pairs, if dict.
         ndict = {}
         for k,v in obj.items():
             nk = camel_to_snake(k)

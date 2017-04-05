@@ -3,7 +3,7 @@
 
     <v-row class="">
       
-      <v-col xs4 class="">
+      <v-col xs3 class="">
 
 	<v-card class="">
 	  <v-card-row class=''>
@@ -22,17 +22,31 @@
 	      @click.native='command'>
 	    </v-btn-toggle>
 	  </v-card-row>
-	  
-
 	</v-card>
+      </v-col>
+
+
+      <!-- EPOCH.JS PLOTS -->
+      <v-col xs9>
+
+	<v-row v-for='channel in currentSession.channels'
+	       key='channel.physicalChannel'>
+	  
+	  <v-card style='width:100%'>
+	    <v-card-title>
+	      {{channel.description}}
+	    </v-card-title>
+	    <smooth-chart
+	      :channel='channel.physicalChannel' 
+	      :reset='resetChart'
+	      :data='channelData(channel.physicalChannel)'>
+	    </smooth-chart>
+	  </v-card>
+
+	</v-row>
 
       </v-col>
 
-      <v-col xs8 class="">
-	<data-chart :data='data'></data-chart>
-	<v-btn primary @click.native='updateData'>Update Data</v-btn>
-      </v-col xs8>
-      
     </v-row>
 
   </v-container>
@@ -42,18 +56,22 @@
   
   // import Component from "../component_location"
   import DataChart from './DataChart'
+  import FastChart from './FastChart'
+  import SmoothChart from './SmoothChart'
 
   export default {
     
     props: ['id'],
 
-    components: {DataChart},
+    components: {DataChart, FastChart, SmoothChart},
 
     data() {
       return {
-	data: [
-	  {x: 1, y: 5}
-	],
+	dataInterval: null,
+	resetChart: false,
+	maxTime: 0,
+	latestTimestamp: 0,
+	recording: false,
 	toggle_exclusive: 2,
 	toggle_options: [
 	  { icon: 'mic', value: 1 },
@@ -64,34 +82,40 @@
 
     watch: {
       toggle_exclusive: function() {
-	console.log('Commanding things now! ' + this.toggle_exclusive) 
 	if (!this.toggle_exclusive) {
-	  this.toggle_exclusive=2
+	  this.toggle_exclusive=2 // By default, we're not recording.
+	  this.recording= false
 	}
 	if (this.toggle_exclusive == 1) {
-	  this.$store.dispatch('startCollection')
+	  var data = {id: this.id, cmd: "start"}
+	  this.$store.dispatch('sessionCommand', data)
+	  this.recording = true
+	  this.dataInterval = setInterval(this.getData, 1000)
+	  this.resetChart=true
 	} else {
-	  this.$store.dispatch('stopCollection')
+	  var data = {id: this.id, cmd: "stop"}
+	  this.$store.dispatch('sessionCommand', data)
+	  clearInterval(this.dataInterval)
+	  this.dataInterval = null
+	  this.resetChart=false
 	}
       } 
     },
 
     methods: {
-      updateData() {
-	var len = this.data.length
-	var lastData = this.data[len-1]
-	var newX = lastData.x + 1
-	var newY = lastData.y + 10 * (Math.random()-0.5)
-	this.data.push({x: newX, y: newY})
-	len = this.data.length
-	lastData = this.data[len-1]
-	newX = lastData.x + 1
-	newY = lastData.y + 10 * (Math.random()-0.5)
-	this.data.push({x: newX, y: newY})
+      getData() {
+	this.$store.dispatch('updateStream', 
+	  {id: this.id, minTime: -1, maxTime:-1})
       },
-      command() {
-	console.log('Starting Collection') 
-      }
+      channelData(channelRequest) {
+	var data = this.$store.state.currentData
+	for (var k=0; k<data.length; k++) {
+	  if (data[k].physicalChannel == channelRequest) {
+	    return data[k].data
+	  }
+	}
+	return [] 
+      },
     },
 
     computed: {
@@ -102,7 +126,6 @@
 
     mounted() {
       this.$store.dispatch('getSession', this.id)
-      	
     }
   
   }

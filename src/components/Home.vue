@@ -1,5 +1,4 @@
 <template>
-
   <v-content v-if='isConnected'>
     <v-container fluid class='ma-2'>
       <v-row>
@@ -20,11 +19,10 @@
   <v-content v-else>
     <create-session></create-session>
   </v-content>
-
 </template>
 
-<script>
 
+<script>
   // import Component from "../component_location"
   import CreateSession from "./CreateSession.vue"
 
@@ -52,15 +50,13 @@
     mounted() {
 
     }
-
   }
+</script>
 
-  </script>
 
-
-  <style>
+<style>
   .top {
     margin-top:25px
   }
-  </style>
+</style>
 

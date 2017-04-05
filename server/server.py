@@ -11,6 +11,7 @@ from flask_cors import *
 from flask_restful import abort, Api, Resource, reqparse
 from time import sleep, time
 from ipdb import set_trace as debug
+from analysis import *
 
 
 # Configure logging.
@@ -59,14 +60,17 @@ class Status(Resource):
 class Sessions(Resource):
     '''Handles session creation and listing.'''
 
+    def get(self):
+        '''List all sessions in the databse.'''
+        data = SessionController(db) # will list if no _id provided.
+        return serialize(data.models)
+
     def post(self):
         '''Create a new session model.'''
-
         # Grab data from request.
         data = request.json
         data = deserialize(data)
         session = SessionController(db, data=data)
-        debug()
         return serialize(session.model)
 
 
@@ -75,8 +79,57 @@ class Session(Resource):
 
     def get(self, session_id):
         '''Get an existing session model.'''
-        session_data = find_document(session_id, db.sessions)
-        return serialize_mongo(session_data)
+        session = SessionController(db, _id=session_id)
+        return serialize(session.model)
+
+    def delete(self, session_id):
+        '''Delete current session, and its associated time series, etc.'''
+        session = SessionController(db, _id=session_id)
+        session.delete() # this will delete all child time series, etc.
+
+    def put(self, session_id):
+        '''Provides commands to start/stop recording data to a session.'''
+        data = request.json
+        data = deserialize(data)
+        s = SessionController(db, _id=session_id)
+        command = data['cmd']
+        if command == 'start': # start streaming data to session
+            board.stream_to(s)
+        elif command=='stop':
+            board.stop_stream()
+
+
+class StreamData(Resource):
+
+    def get(self, session_id):
+        '''Get whatever segment of time series is available.'''
+
+        # Extract query parameters (range on stream request).
+        min_time = request.args.get('min')
+        max_time = request.args.get('max')
+
+        # Make sure range is valid.
+        min_time = float(min_time) if min_time else 0
+        max_time = float(max_time) if max_time else np.inf
+
+        if min_time < 0:
+            min_time = 0
+        if max_time < 0:
+            max_time = np.inf
+
+        s = SessionController(db, _id=session_id)
+        series_data = []
+        print('Minimum time is: {:.2f}'.format(min_time))
+        for channel, series in s.time_series.items():
+            time_series = series.model
+
+            # Actual data.
+            t,v = series.last_segment()
+            # t,v = downsample(t,v,sampling_rate=200)
+
+            time_series['data'] = list(zip(t,v))
+            series_data.append(time_series)
+        return serialize(series_data)
         
 
 '''Define our API routes.'''
@@ -87,11 +140,12 @@ api.add_resource(Status, '/status', methods=['GET', 'POST'])
 api.add_resource(Sessions, '/sessions', methods=['GET', 'POST'])
 
 # Read session, edit session, etc.
-# allowed_methods = ['GET', 'POST', 'DELETE']
-# api.add_resource(Session, '/session/<session_id>', methods=allowed_methods)
+allowed_methods = ['GET', 'PUT', 'DELETE']
+api.add_resource(Session, '/session/<session_id>', methods=allowed_methods)
 
-# Command session (deprecated now, I think?)
-# api.add_resource(Command, '/command', methods=['POST'])
+# Stream time series data.
+path = '/session/<session_id>/stream'
+api.add_resource(StreamData, path, methods=['GET'])
 
 
 if __name__ =='__main__':

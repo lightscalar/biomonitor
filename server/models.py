@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from bson import ObjectId
 from database import *
 import logging as log
 from ipdb import set_trace as debug
@@ -38,6 +39,8 @@ class ModelController(object):
 
         if (_id is not None):
             # Attempt to look up the session given the id.
+            if (type(_id) is str): # convert to ObjectId format
+                _id = ObjectId(_id)
             self._id = _id
             self.read()
 
@@ -51,6 +54,11 @@ class ModelController(object):
         '''Return a collection of all models in the database.'''
         self.models = list(self.collection.find())
         return self.models
+
+
+    def _delete(self):
+        '''Delete the current resource.'''
+        self.collection.delete_one(qwrap(self._id))
 
 
     def _create(self, data):
@@ -99,7 +107,7 @@ class ModelController(object):
 
     def _delete(self):
         '''Delete the core model from the database.'''
-        self.collection.delete_one(qry(self._id))
+        self.collection.delete_one(qwrap(self._id))
 
     @property
     def required_attributes(self):
@@ -125,6 +133,18 @@ class SessionController(ModelController):
         self._read()
         self.load_series()
 
+
+    def delete(self):
+        '''Delete current session and all associated time series.'''
+        
+        # First find all the time series I own; delete those.
+        cursor = self.db.time_series.find({'owner_id': self._id})
+        for ts in cursor:
+            series = TimeSeriesController(self.db, _id=ts['_id'])
+            series.delete() # will take care of its own segment deletion.
+
+        # And now, I delete myself.
+        self._delete()
 
     def load_series(self):
         '''Add channel TimeSeries objects to dictionary indexed by physical
@@ -187,6 +207,16 @@ class TimeSeriesController(ModelController):
         self.load_segment()
 
 
+    def delete(self):
+        '''Delete current time series, as well as all segments.'''
+
+        # First, delete all the segments that I own.
+        self.db.segments.delete_many({'owner_id': self._id})
+
+        # Now delete myself! Au revoir, cruel world.
+        self._delete()
+
+
     @property
     def series(self):
         '''Synthesize entire series from the available segments.'''
@@ -203,6 +233,39 @@ class TimeSeriesController(ModelController):
         return (t, v)
 
 
+    def series_range(self, min_time=0, max_time=np.inf):
+        '''Return series in specified range.'''
+        t,v = [],[]
+        segments = self.db.segments
+        query = {}
+        query['owner_id'] = self._id
+        query['is_flushed'] = True
+        query['min_time'] = {'$gt': min_time}
+        query['max_time'] = {'$lt': max_time}
+        cursor = segments.find(query)
+        for seg in cursor:
+            v += seg['filtered']
+            t += seg['time']
+        return (t,v)
+
+
+    def last_segment(self):
+        '''Return just the latest relevant segment.'''
+        t,v = [],[]
+        segments = self.db.segments
+        query = {}
+        query['owner_id'] = self._id
+        query['is_flushed'] = True
+        try:
+            seg = segments.find(query).sort('$natural',-1).next()
+        except:
+            seg = None
+        if seg:
+            v += seg['filtered']
+            t += seg['time']
+        return (t,v)
+
+
     def load_segment(self):
         '''Load the latest segment.'''
         latest = self.db.segments.\
@@ -216,10 +279,11 @@ class TimeSeriesController(ModelController):
 
     def create(self, data):
         # Create the time series object.
-        data['segment_size'] = 1024
-        data['freq_cutoff'] = 10
+        data['segment_size'] = 800
+        data['freq_cutoff'] = 6
         data['filter_order'] = 5
         data['filter_coefs'] = []
+        data['start_time'] = -1
         self._create(data)
         self.add_segment()
 
@@ -242,6 +306,12 @@ class TimeSeriesController(ModelController):
 
     def push(self, timestamp, value):
         '''Push a new value into the time series.'''
+        if self.model['start_time'] < 0: # First observation establishes start.
+            self.model['start_time'] = timestamp
+            self._update()
+
+        # Correct for start time offset.
+        timestamp -= self.model['start_time']
 
         if self.segment.is_full:
             # Need to flush this segment to disk and start anew.
@@ -381,16 +451,16 @@ if __name__=='__main__':
                 'description': 'PVDF Sensor'}]}
         s = SessionController(database, data=session)
 
-        # Simulate a data collection.
-        duration = 5
-        sampling_rate = 500 # Hz
-        sampling_dt = 1/sampling_rate
-        start = time.time()
-        while (time.time() - start) < duration:
-            value = np.random.randint(2**24-1)
-            t = unix_time_in_microseconds()/1e6
-            s.time_series[1].push(t, value * (2.5/(2**24-1)))
-            time.sleep(sampling_dt)
+        # # Simulate a data collection.
+        # duration = 5
+        # sampling_rate = 500 # Hz
+        # sampling_dt = 1/sampling_rate
+        # start = time.time()
+        # while (time.time() - start) < duration:
+        #     value = np.random.randint(2**24-1)
+        #     t = unix_time_in_microseconds()/1e6
+        #     s.time_series[1].push(t, value * (2.5/(2**24-1)))
+        #     time.sleep(sampling_dt)
 
-        # Now synthesize the entire series.
-        t, v = s.time_series[1].series
+        # # Now synthesize the entire series.
+        # t, v = s.time_series[1].series
