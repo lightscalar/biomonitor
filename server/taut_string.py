@@ -5,7 +5,6 @@ import seaborn as sns
 from seaborn import xkcd_rgb as xkcd
 
 
-
 class Line(object):
 
     def __init__(self, x, y, eps):
@@ -36,6 +35,8 @@ def taut_string(x, y, epsilon):
     -----
     Here is how it works:
     '''
+    x = np.array(x)
+    y = np.array(y)
     T = len(x)
     breakpoints = []
     breakpoints.append(0) # indices corresponding to line breaks.

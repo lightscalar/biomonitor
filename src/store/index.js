@@ -19,7 +19,8 @@ export default new Vuex.Store({
     defaultChannels: defaultChannels,
     currentSession: currentSession,
     sessionList: sessionList,
-    currentData: []
+    currentData: [],
+    dataHistory: []
   },
 
   // -------- GETTERS --------------------------
@@ -51,6 +52,9 @@ export default new Vuex.Store({
     },
     setCurrentData(state, data) {
       state.currentData = data
+    },
+    setDataHistory(state, data) {
+      state.dataHistory = data 
     }
   },
 
@@ -96,11 +100,15 @@ export default new Vuex.Store({
 	console.log('OOPS!')
       })
     },
+    getHistory(context, data) {
+      api.getHistory('session', data).then(function(resp) {
+	context.commit('setDataHistory', resp.data)
+      })
+    },
     updateStream(context, data) {
       api.streamResource('session', data).then(function(resp) {
 	context.commit('setCurrentData', resp.data)
       })
     }
   }
-   
 })

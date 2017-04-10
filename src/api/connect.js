@@ -40,6 +40,12 @@ export default {
       url += '?' + 'min=' + data['minTime']
       url += '&' + 'max=' + data['maxTime']
       return axios.get(url, data)
-    }
+    },
 
+    getHistory(resourceName, data) {
+      var url = BASE_URL + '/' + resourceName + '/' + data.id
+      url += '/history'
+      return axios.get(url, data)
+    }
+  
 }

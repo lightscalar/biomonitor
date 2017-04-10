@@ -1,18 +1,13 @@
 <template>
-  <v-container>
+  <v-container fluid class='ma-3'>
     
-    <v-row class='mt-5'>
+    <v-row>
 
-      <v-col xs5 class="">
+      <v-col xs4>
 	<v-card>
 	  <v-card-row>
-          <v-card-title class='black white--text'>
-	      Create New Data Session
-	      <v-spacer/>
-		<v-btn icon='icon' dark primary flat 
-		  v-tooltip:top="{ html: 'Need some help? Click here.' }">
-		  <v-icon>help_outline</v-icon>
-		</v-btn>
+          <v-card-title class='blue-grey darken-2 white--text'>
+	      Create a New Session
 	    </v-card-title>
 	  </v-card-row>
 	  <v-card-row>
@@ -39,9 +34,9 @@
 		  </v-text-field>
 		</v-col>
 		<v-col xs2 v-if='currentChannels.length>1'>
-		  <v-btn error floating small dark
+		  <v-btn floating small error
 			@click.native='deleteChannel(index)'>
-		    <v-icon >
+		    <v-icon>
 		      delete
 		    </v-icon>
 		  </v-btn>
@@ -64,33 +59,31 @@
 	</v-card>
       </v-col>
 
-      <v-col xs7>
-	<v-card>
+      <v-col xs8>
+	<v-card width='100%'>
 	  <v-card-row>
-	    <v-card-title class='blue-grey white--text'>
-	      Recent Sessions
-	      <v-spacer/>
-		<v-btn icon='icon' dark primary flat 
-		       class='grey lighten-4 blue-grey--text'>
-		  <v-icon>keyboard_arrow_left</v-icon>
-		</v-btn>
-		<v-btn icon='icon' dark primary flat 
-		       class='grey lighten-4 blue-grey--text'>
-		  <v-icon>keyboard_arrow_right</v-icon>
-		</v-btn>
+	    <v-card-title class='blue-grey darken-2 white--text'>
+	      Available Sessions
 	      </v-card-title>
 	    </v-card-row>
 
+	    <v-card-row class='pa-4'>
+	      <v-pagination circle v-bind:length.number="pages.length" 
+		v-model="currentPage"/>
+	    </v-card-row>
+
 	    <v-card-row>
-	      <table v-if='sessionList.length>0'>
+	      <table class='elevation-0' v-if='sessionList.length>0'>
 		<thead>
+		  <th></th>
 		  <th>Session Name</th>
 		  <th>Created At</th>
 		  <th></th>
 		</thead>
 
 		<tbody>
-		  <tr v-for='item in sessionList'>
+		  <tr v-for='(item,index) in sessionList' class='pa-3 elevation-0'>
+		    <td>{{index+1 + 5*(currentPage-1)}}</td>
 		    <td>
 		      <router-link 
 			:to="{name: 'session', params:{id: item._id}}">
@@ -99,7 +92,7 @@
 		    </td>
 		    <td>{{item.createdAt}}</td>
 		    <td>
-		      <v-btn icon='icon' small error
+		      <v-btn icon='icon' dark small class='grey lighten-1'
 			@click.native='deleteSession(item._id)'>
 			<v-icon>delete</v-icon>
 		      </v-btn>
@@ -139,6 +132,7 @@
 
     data() {
       return {
+	currentPage: 1,
 	sessionName: null,
 	channel: null,
 	currentChannels: [],
@@ -178,22 +172,29 @@
       defaultChannels() {
 	return this.$store.state.defaultChannels 
       },
+      pages() {
+	return utils.chunkArray(this.$store.state.sessionList,5) 
+      },
       sessionList() {
-	return this.$store.state.sessionList
-      }
+	if (this.pages.length>0) {
+	  return this.pages[this.currentPage-1]
+	} else {
+	  return []
+	}
+      },
     },
 
     mounted() {
       this.currentChannels = this.$store.state.defaultChannels
       this.$store.dispatch('listSessions')
     }
-  
+
   }
 
 </script>
 
 
 <style>
-  
+
 </style>
 

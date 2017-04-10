@@ -131,7 +131,8 @@ class SessionController(ModelController):
     def read(self):
         '''Read a specific session from the database.'''
         self._read()
-        self.load_series()
+        if self.model:
+            self.load_series()
 
 
     def delete(self):
@@ -280,7 +281,7 @@ class TimeSeriesController(ModelController):
     def create(self, data):
         # Create the time series object.
         data['segment_size'] = 800
-        data['freq_cutoff'] = 6
+        data['freq_cutoff'] = 15
         data['filter_order'] = 5
         data['filter_coefs'] = []
         data['start_time'] = -1
@@ -392,19 +393,20 @@ class SegmentController(ModelController):
     def flush(self):
         '''Flush current segment to the disk. Load new segment into object.'''
 
-        # Flush segment to the database.
+        # Officially publish the segment to the database..
         self.model['is_flushed'] = True
+        
+        # Update min/max times as well as segment duration.
+        self.model['min_time'] = self.min_time
+        self.model['max_time'] = self.max_time
+        self.model['duration'] = self.duration
+
+        # Push to database.
         self._update()
 
 
     def push(self, timestamp, value):
         '''Push an observation into the segment.'''
-
-        # Update the time limits.
-        if self.model['min_time'] == 0:
-            self.model['min_time'] = timestamp
-        if timestamp > self.model['max_time']:
-            self.model['max_time'] = timestamp
 
         # Increment pointer.
         itr = self.model['itr']
@@ -418,22 +420,26 @@ class SegmentController(ModelController):
 
     @property
     def vals(self):
+        '''The values recorded in this segment.'''
         return self.model['vals']
 
 
     @property
     def time(self):
+        '''The time values recorded in this segment.'''
         return self.model['time']
 
 
     @property
     def min_time(self):
-        return self.model['min_time']
+        '''Minimum time present in the segment.'''
+        return np.min(self.model['time'])
 
 
     @property
     def max_time(self):
-        return self.model['max_time']
+        '''Maximum time associated with segment.'''
+        return np.max(self.model['time'])
 
 
     @property

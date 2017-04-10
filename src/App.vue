@@ -7,17 +7,18 @@
       </a>
       <v-spacer/>
 
-      <v-btn dark primary flat v-if='deviceStatus.isConnected'>
-	<v-icon class='mr-2'>check_circle</v-icon>
-	{{deviceStatus.statusMessage}}
-      </v-btn>
-      
-      <v-btn dark error flat v-else @click.native="checkStatus">
-	<v-icon class='mr-2'>error</v-icon>
-	{{deviceStatus.statusMessage}}
-      </v-btn>
+	<v-btn primary v-if='deviceStatus.isConnected' class='elevation-0'>
+	  <v-icon class='mr-2'>check_circle</v-icon>
+	  {{deviceStatus.statusMessage}}
+	</v-btn>
 
-      <v-snackbar v-model='showMessage'>
+	<v-btn warning light v-else @click.native="checkStatus" 
+	       class='elevation-0'>
+	  <v-icon class='mr-2'>error</v-icon>
+	  {{deviceStatus.statusMessage}}
+	</v-btn>
+
+	<v-snackbar v-model='showMessage'>
 	{{statusMessage}}
 	<v-btn flat class="pink--text" @click.native="showMessage=false">
 	  Close

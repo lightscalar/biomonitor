@@ -6,7 +6,7 @@ from gevent.wsgi import WSGIServer
 from database import *
 from models import *
 from device import *
-from flask import Flask, request
+from flask import Flask, request, abort
 from flask_cors import *
 from flask_restful import abort, Api, Resource, reqparse
 from time import sleep, time
@@ -99,6 +99,26 @@ class Session(Resource):
             board.stop_stream()
 
 
+class DataHistory(Resource):
+    '''Returns all available data for a given data session.'''
+
+    def get(self, session_id):
+        '''Return entire data series.'''
+        s = SessionController(db, _id=session_id)
+        if not s._id: abort(404)
+        
+        # Return all data on all available channels.
+        series_data = []
+        for channel, ts in s.time_series.items():
+            time_series = ts.model
+            t,v = ts.series
+            time_series['data'] = list(zip(t,v))
+            series_data.append(time_series)
+
+        # Return all available data for this session.
+        return serialize(series_data)
+
+
 class StreamData(Resource):
 
     def get(self, session_id):
@@ -125,7 +145,6 @@ class StreamData(Resource):
 
             # Actual data.
             t,v = series.last_segment()
-            # t,v = downsample(t,v,sampling_rate=200)
 
             time_series['data'] = list(zip(t,v))
             series_data.append(time_series)
@@ -146,6 +165,10 @@ api.add_resource(Session, '/session/<session_id>', methods=allowed_methods)
 # Stream time series data.
 path = '/session/<session_id>/stream'
 api.add_resource(StreamData, path, methods=['GET'])
+
+# Expose all available historical data for this stream.
+path = '/session/<session_id>/history'
+api.add_resource(DataHistory, path, methods=['GET'])
 
 
 if __name__ =='__main__':

@@ -9,7 +9,7 @@ from models import *
 from ncorr import *
 from mathtools.utils import mahal
 from ipdb import set_trace as debug
-
+from scipy.cluster.vq import kmeans2
 
 
 def downsample(t, y, sampling_rate=200):
@@ -81,17 +81,45 @@ class FeatureExtractor(object):
 
         # Identify the indices at the peaks of the clusters.
         self.peak_indices = []
+        self.peak_height = []
         for cluster in clusters:
             cluster_argmax = np.argmax(self.v[cluster])
             if (len(self.v) - cluster[cluster_argmax])>600:
                 self.peak_indices.append(cluster[cluster_argmax])
+                self.peak_height.append(np.max(self.v[cluster]))
 
+        dpk = median(diff(self.peak_indices))
+        clean_peaks = []
+        for k, pki in enumerate(self.peak_indices):
+            if k>0 and (k<len(self.peak_indices)-1):
+                pkh = self.peak_height[k]
+                smaller_than_prev = (pkh<self.peak_height[k-1])
+                smaller_than_next = (pkh<self.peak_height[k+1])
+                df_surround = self.peak_indices[k+1] - self.peak_indices[k-1]
+                df_good = (abs(df_surround - dpk) < 50)
+                if not (df_good * smaller_than_next * smaller_than_prev):
+                    clean_peaks.append(pki)
+        self.peak_indices = clean_peaks
+
+        # Grab the highest peaks.
+        # clean_peaks = []
+        # nb_clusters = 2
+        # vals, classes = kmeans2(self.peak_height,nb_clusters,iter=100)
+        # if len(np.unique(classes)) == nb_clusters:
+        #     keepers = np.argsort(vals)[-(nb_clusters-1):]
+        #     clean_peaks = []
+        #     for k, loc in enumerate(self.peak_indices):
+        #         if (classes[k] in keepers):
+        #             clean_peaks.append(loc)
+        #     self.peak_indices = clean_peaks
+
+    
         # Find the median pulse width.
-        median_pulse = int(median(diff(self.peak_indices)))
-        median_pulse = 150
+        # median_pulse = int(median(diff(self.peak_indices)))
+        median_pulse = 200
         self.median_pulse = median_pulse
         x = linspace(0,1,median_pulse) 
-        self.fitter = Fit(x, nb_bases=20, reg_coefs=[0,1e-3,1e-3])
+        self.fitter = Fit(x, nb_bases=20, reg_coefs=[0,1e-2,1e-3])
         self.fits = []
         self.coefs = []
         self.pulses = []
@@ -144,7 +172,8 @@ class FeatureExtractor(object):
         self.gold_residuals = []  
         self.gold_coefs = []
         self.gold_pulses = []
-        for k in range(int(self.nb_pulses/3)):
+        max_gold = 15
+        for k in range(max_gold):
             self.gold_residuals.append(self.residuals[self.bp2[k]])
             self.gold_coefs.append(self.coefs[self.bp2[k]])
             self.gold_pulses.append(self.pulses[self.bp2[k]])
@@ -152,6 +181,11 @@ class FeatureExtractor(object):
         # Stack things up.
         self.gold_residuals = np.vstack(self.gold_residuals)
         self.gold_coefs = np.vstack(self.gold_coefs)
+
+        # vecfit = Fit(gx, nb_bases=25, reg_coefs=[0,1e-3,-1e3])
+        # vfit = vecfit.fit(self.gold_residuals.mean(0))
+        # self.fvec = vfit.coefs
+        # COMPUTE FEATURE VECTOR.
         self.fvec = self.gold_coefs.mean(0)
         self.fvec /= np.linalg.norm(self.fvec)
         self.gold_pulses = np.vstack(self.gold_pulses)
@@ -165,14 +199,17 @@ class FeatureExtractor(object):
 
     
 if __name__=='__main__':
+    plt.ion()
+    plt.close('all')
     
     # Grab data from two different sessions.
-    s1 = grab_session(session_name='MJL.NRM3')
+    sess_1 = 'MJL.N02'
+    s1 = grab_session(session_name=sess_1)
     t,v = s1.time_series[1].series
     f1 = FeatureExtractor(t,v)
 
-    # s2 = grab_session(session_name='MJL.NRM2')
-    s2 = grab_session(session_name='MJL.VSM2')
+    sess_2 = 'MJL.V01'
+    s2 = grab_session(session_name=sess_2)
     t,v = s2.time_series[1].series
     f2 = FeatureExtractor(t,v)
 
@@ -180,28 +217,58 @@ if __name__=='__main__':
     plt.close('all')
 
     plt.figure(100)
-    plt.plot(f1.gold_residuals.mean(0), label='Normal')
-    plt.plot(f2.gold_residuals.mean(0), label='Valsalva')
+    plt.plot(f1.gold_residuals.T, color=sns.xkcd_rgb['blue'], alpha=0.1)
+    plt.plot(f2.gold_residuals.T, color=sns.xkcd_rgb['red'], alpha=0.1)
+    plt.plot(f1.gold_residuals.mean(0), color=sns.xkcd_rgb['blue'], label=sess_1)
+    plt.plot(f2.gold_residuals.mean(0), color=sns.xkcd_rgb['red'], label=sess_2)
     legend()
+    title('Residuals')
+    savefig('plots/resids.png')
 
     plt.figure(200)
-    plt.plot(f1.gold_coefs.mean(0), label='Normal')
-    plt.plot(f2.gold_coefs.mean(0), label='Valsalva')
+    # plt.plot(f1.gold_coefs.mean(0), '-o', label=sess_1)
+    # plt.plot(f2.gold_coefs.mean(0), '-o', label=sess_2)
+    plt.plot(f1.fvec, '-o', label=sess_1)
+    plt.plot(f2.fvec, '-o', label=sess_2)
+    prob = f1.fvec.dot(f2.fvec)**4 * 100
+    title('Match index is {:.2f}'.format(prob))
     legend()
+    savefig('plots/matches.png')
 
     plt.figure(300)
-    plt.plot(f1.pulses.mean(0), label='Normal')
-    plt.plot(f2.pulses.mean(0), label='Valsalva')
+    plt.plot(f1.gold_pulses.T, color=sns.xkcd_rgb['blue'], alpha=0.1)
+    plt.plot(f2.gold_pulses.T, color=sns.xkcd_rgb['red'], alpha=0.1)
+    plt.plot(f1.gold_pulses.mean(0), color=sns.xkcd_rgb['blue'], label=sess_1)
+    plt.plot(f2.gold_pulses.mean(0), color=sns.xkcd_rgb['red'], label=sess_2)
     legend()
+    title('Pulses')
+    savefig('plots/pulses.png')
 
-    plt.figure(400)
-    pn = 58
-    plt.plot(f1.pulses[pn], label='{:.2f}'.format(f1.pulse_quality[pn]))
-    legend()
+    # plt.figure(350)
+    # plt.plot(f1.gold_re)
 
-    plt.figure(500)
+    # plt.figure(400)
+    # pn = 23
+    # nfigs = 5
+    # # pulses = [458, 135, 440, 436, 331, 301, 330, 319, 303]
+    # pulses = [1, 2, 56, 47, 46, 50, 49, 35, 34, 14, 0]
+    # for pn in pulses:
+    #     if f1.pulse_quality[pn]>90:
+    #         p = f1.pulses[pn]
+    #         plt.plot(p, color=sns.xkcd_rgb['blue'], label='{:.1f}'.format(f1.pulse_quality[pn]))
+    #     else:
+    #         p = f1.pulses[pn]
+    #         plt.plot(p, color=sns.xkcd_rgb['red'], label='{:.1f}'.format(f1.pulse_quality[pn]))
+    # legend(loc=0)
+    # title('Sample Pulse Quality Measures')
+
+    sns.set_context('talk')
+    plt.figure(500, figsize=(15,8))
     plt.plot(f1.t, f1.v)
-    plt.plot(f1.t[f1.peak_indices], f1.v[f1.peak_indices], 'ro')
+    plt.plot(f1.t[f1.peak_indices], f1.v[f1.peak_indices], 'ro',\
+             label='Peak Detected')
+    # xlim([6,12])
+    xlabel('Time (s)')
+    ylabel('PVDF Signal (V)')
+    # # savefig('plots/peak_finder_.png')
 
-    plt.plot()
-        # plt.title('Quality: {:.2f}'.format(f1.pulse_quality[pn]))

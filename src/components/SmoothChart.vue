@@ -1,7 +1,5 @@
 <template>
-  <div class='ma-3'>
-    <canvas id='channel-1' class='chart' width='800' height='400'></canvas>
-  </div>
+  <canvas id='channel-1' width='500' height='200'></canvas>
 </template>
 
 <script>
@@ -38,7 +36,7 @@
 	// Buffer the data, it it is new to us.
 	var maxDataTime = this.maxDataTime()
 	if (maxDataTime > this.maxTime) {
-	  console.log('Adding data')
+	  console.log('Data package arrived.')
 	  this.maxTime = maxDataTime
 	  this.buffer = this.buffer.concat(this.data)
 	}
@@ -48,9 +46,11 @@
 	  console.log('Collecting')
 	  this.updatingChart = true
 	  this.pushData()
+	  this.chart.start()
 	} else {
 	  console.log('Stopping Collection')
 	  this.updatingChart = false
+	  this.chart.stop()
 	}
       }
     },
@@ -89,6 +89,7 @@
 
     mounted() {
       var options = {}
+      options.width = 1267
       // options.minValue = 0.05
       // options.maxValue = 0.11
       options.millisPerPixel = 5
@@ -96,15 +97,35 @@
       options.grid = {}
       options.grid.millisPerLine = 1000
       options.grid.sharpLines = true
-      options.grid.fillStyle= '#cccccc'
+      options.grid.strokeStyle = '#cfcfcf'
+      options.grid.fillStyle= '#6b8ba4'
+      options.labels = {}
+      options.labels.fontSize = 14
 
+      // Set up a new chart; stream to target html element.
+      // TODO: Use the ID prop to do this properly in the future.
       var smooth = new SmoothieChart(options)
       smooth.streamTo(document.getElementById('channel-1'), 1000)
-      this.timeSeries = new TimeSeries()
-      smooth.addTimeSeries(this.timeSeries,
-	{lineWidth:2,strokeStyle:'#0080ff',fillStyle:'rgba(102,204,255,0.30)'})
-    }
 
+      // Add a new time series object; configure it r'il nice.
+      this.timeSeries = new TimeSeries()
+      var seriesOptions = {}
+      seriesOptions.lineWidth=2,
+      seriesOptions.strokeStyle='#0080ff'
+      seriesOptions.fillStyle='rgba(102,204,255,0.30)'
+      smooth.addTimeSeries(this.timeSeries, seriesOptions)
+
+      // Let's update the size of the graph if windows resize...
+      var y = $('#data-1').width()
+      $('#channel-1').attr('width', y)
+      $( window ).resize(function() {
+	var y = $('#data-1').width()
+	$('#channel-1').attr('width',y)
+      })
+      this.chart = smooth
+      this.chart.render()
+      this.chart.stop()
+    }
   }
 
 </script>
@@ -112,7 +133,7 @@
 
 <style>
   .chart {
-    display: block;
+    width: 100%
   }
 </style>
 
