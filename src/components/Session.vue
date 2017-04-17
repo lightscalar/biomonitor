@@ -9,10 +9,16 @@
 	  <v-card-title class='blue-grey darken-2 white--text'>
 	    {{currentSession.name}}
 	    <v-spacer/>
-	      <v-btn-toggle v-bind:options="toggle_options" 
-		 v-model="toggle_exclusive" class='text-xs-center'
-		 @click.native='command'>
-	      </v-btn-toggle>
+	      <v-btn icon='icon' error v-if='recording' 
+		v-tooltip:left="{ html: 'Pause Data Recording' }"
+		@click.native='stopRecording'>
+		<v-icon error>pause</v-icon>
+	      </v-btn>
+	      <v-btn icon='icon' error 
+		v-tooltip:left="{ html: 'Start Data Recording' }"
+		v-else @click.native='startRecording'>
+		<v-icon error>fiber_manual_record</v-icon>
+	      </v-btn>
 	    </v-card-title>
 
 	  <v-card-row>
@@ -20,36 +26,60 @@
 	    <v-container fluid>
 	      <v-row>
 		<v-col xs2>
-		  <v-btn primary class='mt-3' icon='icon'>
+		  <v-btn primary class='mt-3' icon='icon' v-if='streaming'
+		    @click.native='stopPlaying'>
+		    <v-icon>pause</v-icon>
+		  </v-btn>
+		  <v-btn primary class='mt-3' icon='icon' v-else
+		    @click.native='startPlaying'>
 		    <v-icon>play_arrow</v-icon>
 		  </v-btn>
 		</v-col>
 		<v-col xs10>
-		  <v-slider v-bind:thumb-label='true' v-bind:min='0' v-bind:max='100' v-bind:step='2'
-		    append-icon='timelapse' v-model='selectedTime'></v-slider>
+		  <v-slider v-bind:thumb-label='true' v-bind:min='0' 
+		 v-bind:max='maxDuration()' v-bind:step='2'
+		    append-icon='timelapse' v-model='currentTime'></v-slider>
 		</v-col>
 	      </v-row>
 	    </v-container>
 	  </v-card-text>
 	  </v-card-row>
 	</v-card>
-	
-
 	</v-col>
 
 	<v-col xs8>
 	  <v-card id='data-1' v-for='channel in currentSession.channels'
-	      key = 'channel.physicalChannel'>
+	      key='channel.physicalChannel'>
 	    <v-card-title class='blue-grey darken-2 white--text'>
 	      {{channel.description}}
+	      <v-chip class="blue-grey lighten-1 black--text pa-3">
+		<v-avatar class='black--text'>
+		  <v-icon>query_builder</v-icon>
+		</v-avatar>
+		{{currentTime | sprintf('%03.2f')}} of 
+		{{channelDuration(channel.physicalChannel) | sprintf('%.1f')}} 
+		seconds
+	      </v-chip>
+	      <v-chip class="blue-grey lighten-1 black--text pa-3">
+		<v-avatar class='black--text'>
+		  <v-icon>timeline</v-icon>
+		</v-avatar>
+		{{channelSamplingRate(channel.physicalChannel) | 
+		sprintf('%.1f')}} Hz
+	      </v-chip>
 	      <v-spacer/>
-		<v-btn icon='icon'><v-icon>insert_comment</v-icon></v-btn>
+		<v-btn 
+		  v-tooltip:left="{ html: 'ANNOTATE TIME SERIES' }"
+		  icon='icon'>
+		  <v-icon>
+		    insert_comment
+		  </v-icon>
+		</v-btn>
 	    </v-card-title>
 	    <v-card-row>
 	      <smooth-chart
 		:channel='channel.physicalChannel' 
-		:reset='resetChart'
-		:dataHistory='historicalData(channel.physicalChannel)'
+		:recording='streaming'
 		:data='channelData(channel.physicalChannel)'>
 	      </smooth-chart>
 	    </v-card-row>
@@ -61,59 +91,85 @@
 
 <script>
   
-  // import Component from "../component_location"
-  import DataChart from './DataChart'
-  import FastChart from './FastChart'
   import SmoothChart from './SmoothChart'
 
   export default {
     
     props: ['id'],
 
-    components: {DataChart, FastChart, SmoothChart},
+    components: {SmoothChart},
 
     data() {
       return {
-	selectedTime: 0,
+	currentTime: 0,
+	minTime: 0,
 	dataInterval: null,
-	resetChart: false,
-	maxTime: 0,
 	latestTimestamp: 0,
 	recording: false,
-	toggle_exclusive: 2,
-	toggle_options: [
-	  { icon: 'mic', value: 1 },
-	  { icon: 'mic_off', value: 2 },
-	],
+	streaming: false
       }	
     },
 
-    watch: {
-      toggle_exclusive: function() {
-	if (!this.toggle_exclusive) {
-	  this.toggle_exclusive=2 // By default, we're not recording.
-	  this.recording= false
-	}
-	if (this.toggle_exclusive == 1) {
+    methods: {
+      startRecording() {
 	  var data = {id: this.id, cmd: "start"}
 	  this.$store.dispatch('sessionCommand', data)
 	  this.recording = true
-	  this.dataInterval = setInterval(this.getData, 1000)
-	  this.resetChart=true
-	} else {
+	  this.streaming = true
+
+	  // Grab new data from the server every second.
+	  this.dataInterval = setInterval(this.getNewData, 1000)
+      },
+      stopRecording() {
 	  var data = {id: this.id, cmd: "stop"}
 	  this.$store.dispatch('sessionCommand', data)
 	  clearInterval(this.dataInterval)
 	  this.dataInterval = null
-	  this.resetChart=false
-	}
-      } 
-    },
-
-    methods: {
-      getData() {
+	  this.recording=false
+	  this.streaming = false
+      },
+      startPlaying() {
+	// Grab new data from the server every second. But do not record new
+	// data.
+	this.dataInterval = setInterval(this.getNextData, 1000)
+	this.streaming = true
+      },
+      stopPlaying() {
+	// Stop playing; TODO: Change 'recording' to 'streaming'.
+	clearInterval(this.dataInterval)
+	this.streaming=false
+      },
+      getNextData() {
+	this.currentTime = this.maxTime()
+	console.log('Getting data starting at: ' + this.currentTime)
+	var params = {id: this.id, minTime: this.currentTime, maxTime:-1}
+	this.$store.dispatch('updateStream', params)
+      },
+      getNewData() {
 	this.$store.dispatch('updateStream', 
 	  {id: this.id, minTime: -1, maxTime:-1})
+      },
+      channelDuration(channelRequest) {
+	var data = this.$store.state.currentData
+	for (var k=0; k<data.length; k++) {
+	  if (data[k].physicalChannel == channelRequest) {
+	    return data[k].duration
+	  }
+	  else {
+	    return 0
+	  }
+	}
+      },
+      channelSamplingRate(channelRequest) {
+	var data = this.$store.state.currentData
+	for (var k=0; k<data.length; k++) {
+	  if (data[k].physicalChannel == channelRequest) {
+	    return data[k].samplingRate
+	  }
+	  else {
+	    return 0
+	  }
+	}
       },
       channelData(channelRequest) {
 	var data = this.$store.state.currentData
@@ -124,29 +180,28 @@
 	}
 	return [] 
       },
-      historicalData(channelRequest) {
-	var data = this.$store.state.dataHistory 
+      maxTime() {
+	var maxT = -1
+	var data = this.$store.state.currentData
 	for (var k=0; k<data.length; k++) {
-	  if (data[k].physicalChannel == channelRequest) {
-	    return data[k].data
-	  }
+	  if (data[k].maxTime>maxT)
+	    maxT = data[k].maxTime
 	}
-	return [] 
+	return maxT
+      },
+      maxDuration() {
+	var data = this.$store.state.currentData
+	if (data.length > 0) {
+	  return data[0].duration	
+	} else {
+	  return 100	
+	}
       }
     },
 
     computed: {
       currentSession() {
 	return this.$store.state.currentSession
-      },
-      totalDuration() {
-	var data = this.$store.state.dataHistory
-	if (data.length>0) {
-	  var len = data[0].data.length
-	  return data[0].data[len-1][0]
-	} else {
-	  return 0
-	}
       }
     },
 
@@ -154,14 +209,14 @@
       // Load the current session.
       this.$store.dispatch('getSession', this.id)
 
-      // Load historical session data.
-      // this.$store.dispatch('getHistory', {id: this.id})
+      // Prime it with some data, if possible.
+      var params = {id: this.id, minTime: 0, maxTime:2 }
+      this.$store.dispatch('updateStream', params)
     }
   
   }
 
 </script>
-
 
 <style>
   

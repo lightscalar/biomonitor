@@ -26,3 +26,7 @@ var app = new Vue({
 window.router = app.$router
 
 
+// Implement an SPRINTF filter! So nice to have.
+Vue.filter('sprintf', function(value, formatString) {
+	return sprintf(formatString, value)
+})

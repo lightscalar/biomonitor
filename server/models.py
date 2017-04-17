@@ -234,7 +234,7 @@ class TimeSeriesController(ModelController):
         return (t, v)
 
 
-    def series_range(self, min_time=0, max_time=np.inf):
+    def in_range(self, min_time=0, max_time=np.inf):
         '''Return series in specified range.'''
         t,v = [],[]
         segments = self.db.segments
@@ -243,11 +243,25 @@ class TimeSeriesController(ModelController):
         query['is_flushed'] = True
         query['min_time'] = {'$gt': min_time}
         query['max_time'] = {'$lt': max_time}
-        cursor = segments.find(query)
+        cursor = segments.find_one(query)
         for seg in cursor:
             v += seg['filtered']
             t += seg['time']
         return (t,v)
+
+
+    def at_least(self, min_time):
+        '''Return first segment with time greater than specified time.'''
+        t,v = [], []
+        segments = self.db.segments
+        query = {}
+        query['owner_id'] = self._id
+        query['is_flushed'] = True
+        query['min_time'] = {'$gt': min_time}
+        seg = segments.find_one(query)
+        v += seg['filtered']
+        t += seg['time']
+        return t,v
 
 
     def last_segment(self):
@@ -281,8 +295,8 @@ class TimeSeriesController(ModelController):
     def create(self, data):
         # Create the time series object.
         data['segment_size'] = 800
-        data['freq_cutoff'] = 15
-        data['filter_order'] = 5
+        data['freq_cutoff'] = 10
+        data['filter_order'] = 4
         data['filter_coefs'] = []
         data['start_time'] = -1
         self._create(data)
@@ -348,6 +362,26 @@ class TimeSeriesController(ModelController):
                 {'$set':{'filter_coefs': coefs}})
         self.db.segments.update_one(qwrap(self.segment._id),\
                 {'$set':{'filtered': y_filt}})
+
+
+    @property
+    def props(self):
+        '''Return the total duration and mean sampling rate of time series.'''
+
+        # Do it all in a single query, rather than separate properties.
+        query = {'owner_id': self._id}
+        limit = {'min_time': 1, 'max_time': 1}
+        segments = list(self.db.segments.find(query, limit))
+        duration = np.sum([s['max_time'] - s['min_time'] for s in segments]) 
+        samples = len(segments) * self.model['segment_size']
+        sampling_rate = samples/duration
+        return duration, sampling_rate
+
+    
+    @property
+    def sampling_rate(self):
+        '''Return the mean sampling rate of the series.'''
+        pass
 
 
 class SegmentController(ModelController):

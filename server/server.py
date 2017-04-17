@@ -144,10 +144,26 @@ class StreamData(Resource):
             time_series = series.model
 
             # Actual data.
-            t,v = series.last_segment()
+            if max_time<0:
+                t,v = series.last_segment()
+            else:
+                print(min_time, max_time)
+                try:
+                    t,v = series.at_least(min_time)
+                except:
+                    t,v = [],[]
 
+            # Add data, sampling rate, and current time, etc.
             time_series['data'] = list(zip(t,v))
+            time_series['duration'], time_series['sampling_rate'] = \
+                    series.props
+            time_series['min_time'] = np.min(t)
+            time_series['max_time'] = np.max(t)
+
+            # Add current time series to the series list.
             series_data.append(time_series)
+
+        # Aaaand we're done.
         return serialize(series_data)
         
 

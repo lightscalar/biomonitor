@@ -10,7 +10,7 @@
 
     components: {},
 
-    props: ['channel', 'data', 'reset'],
+    props: ['channel', 'data', 'recording'],
 
     data() {
       return {
@@ -27,7 +27,6 @@
     },
 
     computed: {
-
     },
 
     watch: {
@@ -35,14 +34,15 @@
 	
 	// Buffer the data, it it is new to us.
 	var maxDataTime = this.maxDataTime()
+	console.log('MAX TIME: ' + maxDataTime)
 	if (maxDataTime > this.maxTime) {
 	  console.log('Data package arrived.')
 	  this.maxTime = maxDataTime
 	  this.buffer = this.buffer.concat(this.data)
 	}
       },
-      reset: function() {
-	if (this.reset) {
+      recording: function() {
+	if (this.recording) {
 	  console.log('Collecting')
 	  this.updatingChart = true
 	  this.pushData()
