@@ -73,34 +73,53 @@
 	    </v-card-row>
 
 	    <v-card-row>
-	      <table class='elevation-0' v-if='sessionList.length>0'>
-		<thead>
-		  <th></th>
-		  <th>Session Name</th>
-		  <th>Created At</th>
-		  <th></th>
-		</thead>
 
-		<tbody>
-		  <tr v-for='(item,index) in sessionList' class='pa-3 elevation-0'>
-		    <td>{{index+1 + 5*(currentPage-1)}}</td>
-		    <td>
-		      <router-link 
-			:to="{name: 'session', params:{id: item._id}}">
-			{{item.name}}
-		      </router-link>
-		    </td>
-		    <td>{{item.createdAt}}</td>
-		    <td>
-		      <v-btn icon='icon' dark small class='grey lighten-1'
-			@click.native='deleteSession(item._id)'>
-			<v-icon>delete</v-icon>
-		      </v-btn>
-		    </td>
-		  </tr>
-		</tbody>
+	      <v-data-table v-if='sessionList.length>0' 
+		v-bind:headers='tableHeaders'
+		v-model='sessionList'
+		hide-actions>
+	        <template slot='items' scope='props'>
+		  <td>{{props.item.name}}</td>
+		  <td>{{props.item._id}}</td>
+		  <td>{{props.item.createdAt}}</td>
+		  <td>
+		    <v-btn icon='icon' dark small class='grey lighten-1'
+		      @click.native='deleteSession(props.item._id)'>
+		      <v-icon>delete</v-icon>
+		    </v-btn>
+		  </td>
+		</template>
 
-	      </table>
+	      </v-data-table>
+	      
+	      <!-- <table class='elevation-0' v-if='sessionList.length>0'> -->
+		<!-- <thead> -->
+		  <!-- <th></th> -->
+		  <!-- <th>Session Name</th> -->
+		  <!-- <th>Created At</th> -->
+		  <!-- <th></th> -->
+		<!-- </thead> -->
+
+		<!-- <tbody> -->
+		  <!-- <tr v-for='(item,index) in sessionList' class='pa-3 elevation-0'> -->
+		    <!-- <td>{{index+1 + 5*(currentPage-1)}}</td> -->
+		    <!-- <td> -->
+		      <!-- <router-link --> 
+			<!-- :to="{name: 'session', params:{id: item._id}}"> -->
+			<!-- {{item.name}} -->
+		      <!-- </router-link> -->
+		    <!-- </td> -->
+		    <!-- <td>{{item.createdAt}}</td> -->
+		    <!-- <td> -->
+		      <!-- <v-btn icon='icon' dark small class='grey lighten-1' -->
+			<!-- @click.native='deleteSession(item._id)'> -->
+			<!-- <v-icon>delete</v-icon> -->
+		      <!-- </v-btn> -->
+		    <!-- </td> -->
+		  <!-- </tr> -->
+		<!-- </tbody> -->
+
+	      <!-- </table> -->
 	      <h6 class='ma-5' v-else>
 		No sessions are currently in the database. Add one using the
 		form to the left.
@@ -132,6 +151,9 @@
 
     data() {
       return {
+	tableHeaders: [{text:'Session Name', left: true, value:'name'},
+		       {text:'Session ID', left: true, value:'_id'},
+		       {text:'Created At', left: true, value:'createdAt'}],
 	currentPage: 1,
 	sessionName: null,
 	channel: null,

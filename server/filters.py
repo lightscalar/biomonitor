@@ -5,7 +5,7 @@ from scipy.signal import butter, lfilter
 from mathtools.utils import Vessel
 
 
-def lowpass(t, y, filter_order=5, freq_cutoff=10, zi=[]):
+def lowpass(t, y, filter_order=3, freq_cutoff=10, zi=[]):
     '''Lowpass Butterworth filter the signal.'''
 
     # Determine the sampling rate of the supplied data.

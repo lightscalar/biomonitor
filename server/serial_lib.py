@@ -96,3 +96,5 @@ def serialize(obj, key=None):
             return str(obj)
         else:
             return obj
+        if isinstance(obj, np.generic):
+            return np.asscalar(obj)

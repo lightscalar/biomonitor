@@ -37,7 +37,8 @@
 		</v-col>
 		<v-col xs10>
 		  <v-slider v-bind:thumb-label='true' v-bind:min='0' 
-		 v-bind:max='maxDuration()' v-bind:step='2'
+		    v-bind:max='maxDuration()' v-bind:step='2'
+		    @click.native='adjustSlider'
 		    append-icon='timelapse' v-model='currentTime'></v-slider>
 		</v-col>
 	      </v-row>
@@ -80,7 +81,8 @@
 	      <smooth-chart
 		:channel='channel.physicalChannel' 
 		:recording='streaming'
-		:data='channelData(channel.physicalChannel)'>
+		:data='channelData(channel.physicalChannel)'
+		:reset-time='minChartTime'>
 	      </smooth-chart>
 	    </v-card-row>
 	  </v-card>
@@ -106,11 +108,17 @@
 	dataInterval: null,
 	latestTimestamp: 0,
 	recording: false,
-	streaming: false
+	streaming: false,
+	minChartTime: 0
       }	
     },
 
     methods: {
+      adjustSlider() {
+	this.minChartTime = this.currentTime
+	this.$store.dispatch('updateStream', 
+	  {id: this.id, minTime: this.currentTime, maxTime:-1})
+      },
       startRecording() {
 	  var data = {id: this.id, cmd: "start"}
 	  this.$store.dispatch('sessionCommand', data)
@@ -131,7 +139,7 @@
       startPlaying() {
 	// Grab new data from the server every second. But do not record new
 	// data.
-	this.dataInterval = setInterval(this.getNextData, 1000)
+	this.dataInterval = setInterval(this.getNextData, 2000)
 	this.streaming = true
       },
       stopPlaying() {
@@ -141,7 +149,6 @@
       },
       getNextData() {
 	this.currentTime = this.maxTime()
-	console.log('Getting data starting at: ' + this.currentTime)
 	var params = {id: this.id, minTime: this.currentTime, maxTime:-1}
 	this.$store.dispatch('updateStream', params)
       },
@@ -186,6 +193,9 @@
 	for (var k=0; k<data.length; k++) {
 	  if (data[k].maxTime>maxT)
 	    maxT = data[k].maxTime
+	}
+	if (maxT < 0) {
+	  this.stopPlaying()	
 	}
 	return maxT
       },

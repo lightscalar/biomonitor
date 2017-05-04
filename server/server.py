@@ -134,8 +134,8 @@ class StreamData(Resource):
 
         if min_time < 0:
             min_time = 0
-        if max_time < 0:
-            max_time = np.inf
+        # if max_time < 0:
+        #     max_time = np.inf
 
         s = SessionController(db, _id=session_id)
         series_data = []
@@ -157,8 +157,12 @@ class StreamData(Resource):
             time_series['data'] = list(zip(t,v))
             time_series['duration'], time_series['sampling_rate'] = \
                     series.props
-            time_series['min_time'] = np.min(t)
-            time_series['max_time'] = np.max(t)
+            if len(t)>0:
+                time_series['min_time'] = np.min(t)
+                time_series['max_time'] = np.max(t)
+            else: # All out of data.
+                time_series['min_time'] = -1
+                time_series['max_time'] = -1
 
             # Add current time series to the series list.
             series_data.append(time_series)

@@ -277,6 +277,7 @@ class TimeSeriesController(ModelController):
             seg = None
         if seg:
             v += seg['filtered']
+            # v += seg['vals']
             t += seg['time']
         return (t,v)
 
@@ -296,7 +297,7 @@ class TimeSeriesController(ModelController):
         # Create the time series object.
         data['segment_size'] = 800
         data['freq_cutoff'] = 10
-        data['filter_order'] = 4
+        data['filter_order'] = 3
         data['filter_coefs'] = []
         data['start_time'] = -1
         self._create(data)
@@ -355,6 +356,7 @@ class TimeSeriesController(ModelController):
 
         # Update the models.
         self.model['filter_coefs'] = coefs
+        # NOTE: Removed the filtering.
         self.segment.model['filtered'] = y_filt
         
         # Fast updates of time series and the segment.

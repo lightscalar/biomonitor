@@ -203,12 +203,12 @@ if __name__=='__main__':
     plt.close('all')
     
     # Grab data from two different sessions.
-    sess_1 = 'MJL.N02'
+    sess_1 = 'CHL.N01'
     s1 = grab_session(session_name=sess_1)
     t,v = s1.time_series[1].series
     f1 = FeatureExtractor(t,v)
 
-    sess_2 = 'MJL.V01'
+    sess_2 = 'MJL.N06'
     s2 = grab_session(session_name=sess_2)
     t,v = s2.time_series[1].series
     f2 = FeatureExtractor(t,v)

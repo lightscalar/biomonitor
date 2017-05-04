@@ -10,7 +10,7 @@
 
     components: {},
 
-    props: ['channel', 'data', 'recording'],
+    props: ['channel', 'data', 'recording', 'resetTime'],
 
     data() {
       return {
@@ -30,13 +30,16 @@
     },
 
     watch: {
+      resetTime: function() {
+	console.log('Clearing the buffer!')
+	this.buffer = []
+	this.maxTime = 0
+      },
       data: function() {
-	
 	// Buffer the data, it it is new to us.
 	var maxDataTime = this.maxDataTime()
-	console.log('MAX TIME: ' + maxDataTime)
 	if (maxDataTime > this.maxTime) {
-	  console.log('Data package arrived.')
+	  console.log('Receiving Data Package!')
 	  this.maxTime = maxDataTime
 	  this.buffer = this.buffer.concat(this.data)
 	}
@@ -110,7 +113,7 @@
       // Add a new time series object; configure it r'il nice.
       this.timeSeries = new TimeSeries()
       var seriesOptions = {}
-      seriesOptions.lineWidth=2,
+      seriesOptions.lineWidth=1,
       seriesOptions.strokeStyle='#0080ff'
       seriesOptions.fillStyle='rgba(102,204,255,0.30)'
       smooth.addTimeSeries(this.timeSeries, seriesOptions)
