@@ -2,13 +2,16 @@ import numpy as np
 
 
 def downsample(t, x, target_sampling_rate):
-    '''Smarter downsampling.'''
+    '''Smarter downsampling. We now pad out to appropriate length, and average
+       samples appropriately in order to approximately achieve the target
+       downsampling rate.
+    '''
 
     if len(t) == 0:
-        # Nothing to downsample.
+        # Nothing to downsample. So, um. Sort of awkward.
         return t, x
 
-    # Convert to NP arrays.
+    # Convert to numpy arrays.
     t, x = np.array(t), np.array(x)
 
     # Estimate current sampling rate.

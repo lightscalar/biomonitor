@@ -81,7 +81,7 @@
 	var datum = null
 	if (this.stream) { // stream this data to the chart.
 	  var dt = 25 // milliseconds between updates.
-	  var maxPts = Math.min(6, this.buffer.length)
+	  var maxPts = Math.min(5, this.buffer.length)
 	  for (var itr=0; itr<maxPts; itr++) {
 	    datum = this.buffer.shift()
 	    datum = {x: datum[0], y: datum[1]}

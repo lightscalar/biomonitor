@@ -65,7 +65,7 @@
 	<v-card width='100%'>
 	  <v-card-row>
 	    <v-card-title class='blue-grey lighten-2 white--text'>
-	       Session Library
+	       Session Archive
 	      </v-card-title>
 	    </v-card-row>
 
