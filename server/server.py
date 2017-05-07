@@ -12,6 +12,8 @@ from flask_restful import abort, Api, Resource, reqparse
 from time import sleep, time
 from ipdb import set_trace as debug
 from analysis import *
+from sig_proc import *
+from bson import ObjectId
 
 
 # Configure logging.
@@ -99,6 +101,23 @@ class Session(Resource):
             board.stop_stream()
 
 
+class Annotations(Resource):
+
+    def post(self):
+        '''Create a new annotation.'''
+        data = request.json
+        data = deserialize(data)
+        db.annotations.insert_one(data)
+
+
+class Annotation(Resource):
+    '''A data recording session resource.'''
+
+    def delete(self, annotation_id):
+        '''Delete specified annotation, and its associated time series, etc.'''
+        db.annotations.delete_one({'_id': ObjectId(annotation_id)})
+
+
 class DataHistory(Resource):
     '''Returns all available data for a given data session.'''
 
@@ -124,6 +143,9 @@ class StreamData(Resource):
     def get(self, session_id):
         '''Get whatever segment of time series is available.'''
 
+        # Specify the frequency to display to web.
+        target_frequency = 100
+
         # Extract query parameters (range on stream request).
         min_time = request.args.get('min')
         max_time = request.args.get('max')
@@ -139,7 +161,8 @@ class StreamData(Resource):
 
         s = SessionController(db, _id=session_id)
         series_data = []
-        print('Minimum time is: {:.2f}'.format(min_time))
+        # print('Minimum time is: {:.2f}'.format(min_time))
+        # print('Maximum time is: {:.2f}'.format(max_time))
         for channel, series in s.time_series.items():
             time_series = series.model
 
@@ -147,19 +170,23 @@ class StreamData(Resource):
             if max_time<0:
                 t,v = series.last_segment()
             else:
-                print(min_time, max_time)
                 try:
+                    # print('Getting at least...')
                     t,v = series.at_least(min_time)
                 except:
                     t,v = [],[]
 
+            # Downsample data for display purposes.
+            t_,v_ = downsample(t, v, target_frequency)
+
             # Add data, sampling rate, and current time, etc.
-            time_series['data'] = list(zip(t,v))
+            time_series['data'] = list(zip(t_,v_))
             time_series['duration'], time_series['sampling_rate'] = \
                     series.props
             if len(t)>0:
                 time_series['min_time'] = np.min(t)
                 time_series['max_time'] = np.max(t)
+                # print(time_series['max_time'])
             else: # All out of data.
                 time_series['min_time'] = -1
                 time_series['max_time'] = -1
@@ -190,6 +217,13 @@ api.add_resource(StreamData, path, methods=['GET'])
 path = '/session/<session_id>/history'
 api.add_resource(DataHistory, path, methods=['GET'])
 
+# Add annotations.
+path = '/annotations'
+api.add_resource(Annotations, path, methods=['GET', 'POST'])
+
+# Add annotation.
+path = '/annotation/<annotation_id>'
+api.add_resource(Annotation, path, methods=['DELETE'])
 
 if __name__ =='__main__':
 

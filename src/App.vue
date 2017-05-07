@@ -1,6 +1,6 @@
 <template>
   <v-app id="app">
-    <v-toolbar class="grey lighten-4">
+    <v-toolbar class="elevation-0 blue-grey darken-4">
 
       <a href='/#'>
 	<img src='./assets/bio_logo@2x.png' class='logo'>

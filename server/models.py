@@ -133,6 +133,15 @@ class SessionController(ModelController):
         self._read()
         if self.model:
             self.load_series()
+            self.load_annotations()
+
+
+    def load_annotations(self):
+        '''Load all annotations.'''
+        query = {}
+        query['owner_id'] = self._id
+        self.annotations = list(self.db.annotations.find(query))
+        self.model['annotations'] = self.annotations
 
 
     def delete(self):
@@ -146,6 +155,7 @@ class SessionController(ModelController):
 
         # And now, I delete myself.
         self._delete()
+
 
     def load_series(self):
         '''Add channel TimeSeries objects to dictionary indexed by physical
@@ -200,6 +210,7 @@ class TimeSeriesController(ModelController):
         '''Create or load the time series.'''
         ModelController.__init__(self, 'time_series', database, data=data,\
                 _id=_id)
+        self.mean_sampling_rate() # cache current sampling rates, etc.
 
 
     def read(self):
@@ -225,11 +236,12 @@ class TimeSeriesController(ModelController):
         t,v = [],[]
         segments = self.db.segments
         cursor = segments.find({'owner_id':self._id, 'is_flushed':True},\
-                               {'filtered':1, 'time':1}).\
+                {'vals': 1, 'filtered':1, 'time':1}).\
                                sort('min_time', 1)
         # Concatenate segments.
         for seg in cursor:
-            v += seg['filtered']
+            # v += seg['filtered']
+            v += seg['vals']
             t += seg['time']
         return (t, v)
 
@@ -257,10 +269,15 @@ class TimeSeriesController(ModelController):
         query = {}
         query['owner_id'] = self._id
         query['is_flushed'] = True
-        query['min_time'] = {'$gt': min_time}
-        seg = segments.find_one(query)
-        v += seg['filtered']
-        t += seg['time']
+        query['min_time'] = {'$gte': min_time}
+        segs = segments.find(query)
+        print(segs.count())
+        nb_segs = np.min([segs.count(), 3])
+        # Grab the latest three segments; can fill the buffer that way.
+        for k in range(nb_segs):
+            seg = segs.next()
+            v += seg['filtered']
+            t += seg['time']
         return t,v
 
 
@@ -305,10 +322,14 @@ class TimeSeriesController(ModelController):
 
 
     def add_segment(self, current_segment=None):
-        '''Add a new segment to the data series.'''
+        '''Add a new segment to the time series.'''
         segment_data = {}
         segment_data['owner_id'] = self._id
         segment_data['segment_size'] = self.model['segment_size']
+        if self.number_of_segments == 0:
+            segment_data['initial_segment'] = True
+        else:
+            segment_data['initial_segment'] = False
         segment = SegmentController(self.db, data=segment_data)
         self._update()
         self.load_segment()
@@ -320,26 +341,58 @@ class TimeSeriesController(ModelController):
         return ['owner_id', 'description', 'physical_channel']
 
 
+    def calculate_reference_time(self, timestamp):
+        '''Calculate the delta time reference such that we have time continuity
+           with previous segment blocks. This allows users to pause the 
+           collection and resume later without having huge time gaps. We still
+           retain the actual time in the form of the unix epoch time.i
+        '''
+        dt, fs = self.mean_sampling_rate()
+        seg = self.last_segment()
+
+        # Reference time is such that current timestamp is sampled to match
+        # the last segment.
+        return (timestamp - (np.max(seg[0]) + dt))
+
+
     def push(self, timestamp, value):
-        '''Push a new value into the time series.'''
-        if self.model['start_time'] < 0: # First observation establishes start.
-            self.model['start_time'] = timestamp
-            self._update()
+        '''Push a new (timestamp, value) into the time series.'''
 
-        # Correct for start time offset.
-        timestamp -= self.model['start_time']
-
+        # Check to see if there is room in the current segment.
         if self.segment.is_full:
             # Need to flush this segment to disk and start anew.
             self.filter_segment() # butterworth filter this guy.
             self.segment.flush()
             self.add_segment() 
 
+        # If this is the first segment, reference time is current epoch time.
+        if not self.segment.has_reference_time:
+            if self.segment.is_initial_segment:
+                self.segment.model['reference_time'] = timestamp
+            else: # look at the last segment to get reference time.
+                self.segment.model['reference_time'] = \
+                        self.calculate_reference_time(timestamp)
+
+        # Correct for start time offset.
+        shifted_time = (timestamp - self.segment.model['reference_time'])
+
+        # Check for expired segment (this timestamp too big to fit given the
+        # average dt.
+        if self.segment.is_expired(shifted_time, self.mean_dt):
+            self.filter_segment() # butterworth filter this guy.
+            self.segment.flush()
+            self.add_segment() 
+            self.segment.model['reference_time'] = \
+                    self.calculate_reference_time(timestamp)
+            # Recalculate the shift w.r.t new data.
+            shifted_time = (timestamp - self.segment.model['reference_time'])
+
         # Otherwise keep stuffing data in there.
-        self.segment.push(timestamp, value)
+        self.segment.push(shifted_time, value, epoch=timestamp)
 
 
     def filter_segment(self):
+        '''Run a low pass filter on the data in the current segment.'''
 
         # For convenience!
         t = self.segment.model['time']
@@ -356,7 +409,8 @@ class TimeSeriesController(ModelController):
 
         # Update the models.
         self.model['filter_coefs'] = coefs
-        # NOTE: Removed the filtering.
+
+        # Filtering the data.
         self.segment.model['filtered'] = y_filt
         
         # Fast updates of time series and the segment.
@@ -377,13 +431,35 @@ class TimeSeriesController(ModelController):
         duration = np.sum([s['max_time'] - s['min_time'] for s in segments]) 
         samples = len(segments) * self.model['segment_size']
         sampling_rate = samples/duration
+        if not duration:
+            duration = 0
+            sampling_rate = 0
         return duration, sampling_rate
 
-    
+
+    def mean_sampling_rate(self):
+        '''Return the mean sampling rate of the entire series.'''
+        query = {}
+        query['owner_id'] = self._id
+        query['is_flushed'] = True
+        segments = self.db.segments.find(query) 
+         
+        # Estimate sampling rate in segments.
+        dt = []
+        for k, segment in enumerate(segments):
+            dt.append(np.mean(np.diff(segment['time'])))
+
+        # Cache the values.
+        self.mean_dt = np.median(dt) if len(dt) > 0 else 0
+        self.mean_fs = np.median(1/np.array(dt)) if len(dt) > 0 else 0
+        return self.mean_dt, self.mean_fs 
+
+
     @property
-    def sampling_rate(self):
-        '''Return the mean sampling rate of the series.'''
-        pass
+    def number_of_segments(self):
+        query = {}
+        query['owner_id'] = self._id
+        return self.db.segments.find(query).count()
 
 
 class SegmentController(ModelController):
@@ -412,9 +488,17 @@ class SegmentController(ModelController):
         data['itr'] = 0
         data['min_time'] = 0
         data['max_time'] = 0
+        data['reference_time'] = -1
+
+        # Time is incremental 'delta' time; unix epoch stores actual time.
         data['time'] = list(np.zeros(data['segment_size']))
+        data['epoch'] = list(np.zeros(data['segment_size']))
+
+        # vals stores raw values; filtered stores digitally filtered version.
         data['vals'] = list(np.zeros(data['segment_size']))
         data['filtered'] = list(np.zeros(data['segment_size']))
+
+        # When the segment is full it is flushed to the database.
         data['is_flushed'] = False
         if '_id' in data: del data['_id']
         return data
@@ -441,7 +525,7 @@ class SegmentController(ModelController):
         self._update()
 
 
-    def push(self, timestamp, value):
+    def push(self, timestamp, value, epoch=None):
         '''Push an observation into the segment.'''
 
         # Increment pointer.
@@ -452,6 +536,25 @@ class SegmentController(ModelController):
         if not self.is_full:
             self.model['time'][itr] = timestamp
             self.model['vals'][itr] = value
+            if epoch:
+                self.model['epoch'] = epoch
+
+
+    def is_expired(self, shifted_timestamp, dt):
+        '''Is this segment expired with respect to given timestamp and dt?'''
+
+        # If we wait too long to push a sample, reset reference time.
+        safety_factor = 25
+        we_know_dt = (dt>0)
+        data_present = self.model['itr'] > 0
+        big_jump = (shifted_timestamp - self.max_time) > (dt * safety_factor)
+        expired = (we_know_dt * data_present * big_jump)
+        if expired:
+            itr = self.model['itr']
+            self.model['time'] = self.model['time'][:itr]
+            self.model['vals'] = self.model['vals'][:itr]
+            self.model['filtered'] = self.model['filtered'][:itr]
+        return expired
 
 
     @property
@@ -480,7 +583,20 @@ class SegmentController(ModelController):
 
     @property
     def duration(self):
+        '''Total duration of the data in the segment.'''
         return (self.model['max_time'] - self.model['min_time'])
+
+    
+    @property
+    def is_initial_segment(self):
+        '''Are we the initial segment in this time series?'''
+        return self.model['initial_segment']
+
+
+    @property
+    def has_reference_time(self):
+        '''Have we specified the reference time?'''
+        return self.model['reference_time'] > 0
 
 
 if __name__=='__main__':
@@ -489,20 +605,31 @@ if __name__=='__main__':
     database = connect_to_database()
 
     if True: 
-        session = {'name':'Dialysis', 'channels': [{'physical_channel': 1,\
+        session = {'name':'Randomness', 'channels': [{'physical_channel': 1,\
                 'description': 'PVDF Sensor'}]}
         s = SessionController(database, data=session)
+        ts = s.time_series[1]
 
-        # # Simulate a data collection.
-        # duration = 5
-        # sampling_rate = 500 # Hz
-        # sampling_dt = 1/sampling_rate
-        # start = time.time()
-        # while (time.time() - start) < duration:
-        #     value = np.random.randint(2**24-1)
-        #     t = unix_time_in_microseconds()/1e6
-        #     s.time_series[1].push(t, value * (2.5/(2**24-1)))
-        #     time.sleep(sampling_dt)
+        # Simulate a data collection.
+        duration = 25
+        sampling_rate = 500 # Hz
+        sampling_dt = 1/sampling_rate
+        start = time.time()
+        while (time.time() - start) < duration:
+            value = np.random.randint(2**24-1)
+            t = unix_time_in_microseconds()/1e6
+            s.time_series[1].push(t, value * (2.5/(2**24-1)))
+            time.sleep(sampling_dt)
 
-        # # Now synthesize the entire series.
-        # t, v = s.time_series[1].series
+        # Wait for a while. Ensure there is continuity.
+        time.sleep(4)
+
+        start = time.time()
+        while (time.time() - start) < duration:
+            value = np.random.randint(2**24-1)
+            t = unix_time_in_microseconds()/1e6
+            s.time_series[1].push(t, value * (2.5/(2**24-1)))
+            time.sleep(sampling_dt)
+
+        # Now synthesize the entire series.
+        t, v = s.time_series[1].series

@@ -36,7 +36,7 @@
 	this.maxTime = 0
       },
       data: function() {
-	// Buffer the data, it it is new to us.
+	// Buffer the data, if it is new to us.
 	var maxDataTime = this.maxDataTime()
 	if (maxDataTime > this.maxTime) {
 	  console.log('Receiving Data Package!')
@@ -70,18 +70,16 @@
       },
       pushData() {
 	// Grab next data. Push it in with appropriate delay.
+	// The delay is now fixed. It is always 20 ms.
+	var dt = 20 // milliseconds
 	if (this.updatingChart) {
 	  if (this.buffer.length>0) {
-	    var dt = (this.buffer[1] - this.buffer[0])
-	    var val = 0
-	    val += this.buffer.shift()[1]
-	    val += this.buffer.shift()[1]
-	    val += this.buffer.shift()[1]
-	    val += this.buffer.shift()[1]
-	    this.updateChart(val/4)
-	    setTimeout(this.pushData, 5)
+	    var datum = this.buffer.shift()
+	    this.$store.commit('setTime', datum[0])
+	    this.updateChart(datum[1])
+	    setTimeout(this.pushData, dt)
 	  } else {
-	    setTimeout(this.pushData, 500)
+	    setTimeout(this.pushData, 25*dt) // wait longer if no data present
 	  } 
 	}
       },
@@ -104,6 +102,7 @@
       options.grid.fillStyle= '#6b8ba4'
       options.labels = {}
       options.labels.fontSize = 14
+      options.interpolation = 'bezier'
 
       // Set up a new chart; stream to target html element.
       // TODO: Use the ID prop to do this properly in the future.

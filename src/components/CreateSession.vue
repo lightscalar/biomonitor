@@ -6,30 +6,31 @@
       <v-col xs4>
 	<v-card>
 	  <v-card-row>
-          <v-card-title class='blue-grey darken-2 white--text'>
+          <v-card-title class='blue-grey darken-4 white--text'>
 	      Create a New Session
 	    </v-card-title>
 	  </v-card-row>
-	  <v-card-row>
+	  <v-card-row class='blue-grey darken-4'>
 	    <v-card-text>
-	      <v-text-field
+	      <v-text-field class='black--text'
 		 v-model = 'sessionName'
+		 dark
 		 name="input-1"
 		 label="Session Name">
 	      </v-text-field>
 	    </v-card-text>
 	  </v-card-row>
 
-	  <v-card-row>
+	  <v-card-row class='blue-grey darken-4'>
 	    <v-container class="">
 	      <v-row v-for='(item, index) in currentChannels' :key='item.id'>
 		<v-col xs5>
-		  <v-text-field v-model="item.description" 
+		  <v-text-field v-model="item.description" dark
 		  label="Channel Description">
 		  </v-text-field>
 		</v-col>
 		<v-col xs5>
-		  <v-text-field v-model="item.physicalChannel" 
+		  <v-text-field v-model="item.physicalChannel" dark
 		  label="Physical Channel">
 		  </v-text-field>
 		</v-col>
@@ -45,8 +46,9 @@
 	    </v-container>
 
 	  </v-card-row>
-	  <v-card-row action>
-	    <v-btn default light @click.native='addChannel()'>
+	  <v-card-row action class='blue-grey darken-4'>
+	    <v-spacer/>
+	    <v-btn default light @click.native='addChannel()' dark>
 	      <v-icon class='mr-1' >
 		note_add
 	      </v-icon> 
@@ -62,8 +64,8 @@
       <v-col xs8>
 	<v-card width='100%'>
 	  <v-card-row>
-	    <v-card-title class='blue-grey darken-2 white--text'>
-	      Available Sessions
+	    <v-card-title class='blue-grey lighten-2 white--text'>
+	       Session Library
 	      </v-card-title>
 	    </v-card-row>
 
@@ -72,14 +74,19 @@
 		v-model="currentPage"/>
 	    </v-card-row>
 
-	    <v-card-row>
+	    <v-card-row class='pa-3'>
 
 	      <v-data-table v-if='sessionList.length>0' 
 		v-bind:headers='tableHeaders'
 		v-model='sessionList'
 		hide-actions>
 	        <template slot='items' scope='props'>
-		  <td>{{props.item.name}}</td>
+		  <td>
+		    <router-link 
+		      :to="{name: 'session', params:{id: props.item._id}}">
+		      {{props.item.name}}
+		    </router-link>
+		  </td>
 		  <td>{{props.item._id}}</td>
 		  <td>{{props.item.createdAt}}</td>
 		  <td>
@@ -89,37 +96,7 @@
 		    </v-btn>
 		  </td>
 		</template>
-
 	      </v-data-table>
-	      
-	      <!-- <table class='elevation-0' v-if='sessionList.length>0'> -->
-		<!-- <thead> -->
-		  <!-- <th></th> -->
-		  <!-- <th>Session Name</th> -->
-		  <!-- <th>Created At</th> -->
-		  <!-- <th></th> -->
-		<!-- </thead> -->
-
-		<!-- <tbody> -->
-		  <!-- <tr v-for='(item,index) in sessionList' class='pa-3 elevation-0'> -->
-		    <!-- <td>{{index+1 + 5*(currentPage-1)}}</td> -->
-		    <!-- <td> -->
-		      <!-- <router-link --> 
-			<!-- :to="{name: 'session', params:{id: item._id}}"> -->
-			<!-- {{item.name}} -->
-		      <!-- </router-link> -->
-		    <!-- </td> -->
-		    <!-- <td>{{item.createdAt}}</td> -->
-		    <!-- <td> -->
-		      <!-- <v-btn icon='icon' dark small class='grey lighten-1' -->
-			<!-- @click.native='deleteSession(item._id)'> -->
-			<!-- <v-icon>delete</v-icon> -->
-		      <!-- </v-btn> -->
-		    <!-- </td> -->
-		  <!-- </tr> -->
-		<!-- </tbody> -->
-
-	      <!-- </table> -->
 	      <h6 class='ma-5' v-else>
 		No sessions are currently in the database. Add one using the
 		form to the left.

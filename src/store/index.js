@@ -20,7 +20,8 @@ export default new Vuex.Store({
     currentSession: currentSession,
     sessionList: sessionList,
     currentData: [],
-    dataHistory: []
+    dataHistory: [],
+    elapsedTime: 0
   },
 
   // -------- GETTERS --------------------------
@@ -55,7 +56,10 @@ export default new Vuex.Store({
     },
     setDataHistory(state, data) {
       state.dataHistory = data 
-    }
+    },
+    setTime(state, data) {
+      state.elapsedTime = data
+    },
   },
 
   // ------ ACTIONS ------------------------
@@ -75,6 +79,13 @@ export default new Vuex.Store({
 	router.push({name: 'session', params: {id: resp.data._id}})
       }) 
     },
+    createAnnotation(context, data) {
+      // Create a new annotation; update list of annotations.
+      var owner_id = data.owner_id
+      api.postResource('annotations', data).then(function(resp) {
+	context.dispatch('getSession', owner_id)
+      }) 
+    },
     getSession(context, id) {
       // Get a specified session.
       api.getResource('session', id).then(function(resp) {
@@ -91,6 +102,12 @@ export default new Vuex.Store({
       // Delete the session at /id.
       api.deleteResource('session', id).then(function(resp) {
 	context.dispatch('listSessions')
+      }) 
+    },
+    deleteAnnotation(context, id) {
+      // Delete the session at /id.
+      api.deleteResource('annotation', id).then(function(resp) {
+	console.log('Deleted the session.')
       }) 
     },
     sessionCommand(context, data) {
