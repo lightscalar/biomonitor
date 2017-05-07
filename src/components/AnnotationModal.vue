@@ -28,6 +28,8 @@
 	  <v-card-text class='blue-grey darken-4'>
 	    <v-text-field
 	      dark
+	     class='pa-2'
+	     style='border: 1px solid #3b4348'
 	      label="Annotation Text" 
 	      v-model='annotationText'
 	      multi-line>

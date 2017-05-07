@@ -146,23 +146,25 @@
 	theme: 'theme1' ,
 	axisX: {
 	  gridColor: 'lightGray',
-	  gridThickness: 2,
+	  gridThickness: 1,
 	  title: 'Elapsed Time (seconds)',
 	  titleFontFamily: 'Avenir Next',
 	  titleFontSize: 14,
 	  labelFontSize: 14,
-	  interval: 0.25,
+	  interval: 0.50,
 	  intervalType: 'seconds'
 	},
 	axisY: {
 	  title: 'Amplitude (voltage)',
 	  titleFontFamily: 'Avenir Next',
+	  gridThickness: 1,
 	  titleFontSize: 14,
 	  labelFontSize: 14
 	},
 	data: [
 	  {
 	    type: "spline",
+	    lineColor: '#3C78CD',
 	    dataPoints: this.chartData
 	  }]
       })
