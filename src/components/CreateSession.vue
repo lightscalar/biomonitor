@@ -172,7 +172,7 @@
 	return this.$store.state.defaultChannels 
       },
       pages() {
-	return utils.chunkArray(this.$store.state.sessionList,5) 
+	return utils.chunkArray(this.$store.state.sessionList,10) 
       },
       sessionList() {
 	if (this.pages.length>0) {

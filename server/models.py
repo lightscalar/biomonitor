@@ -241,7 +241,7 @@ class TimeSeriesController(ModelController):
         # Concatenate segments.
         for seg in cursor:
             # v += seg['filtered']
-            v += seg['vals']
+            v += seg['filtered']
             t += seg['time']
         return (t, v)
 

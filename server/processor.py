@@ -82,6 +82,8 @@ def find_peaks(t, v):
 
 def scan_for_peaks(t, v, dt=3):
     '''Scan through data in increments of dt to find peaks.'''
+    if len(t) == 0:
+        return []
     t_ = 1.0 * t
     t_ -= t_[0]
     maxt = t_.max()
@@ -209,10 +211,9 @@ def golden_representation(t,v):
 
 if __name__ == '__main__':
 
-    sess_1 = 'CHL.N01'
+    sess_1 = 'Enclosure 2'
     # sess_1 = 'DUAL 14'
     # sess_1 = 'APR.18_3'
-    sess_1 = 'APR.18.8:56'
     s1 = grab_session(session_name=sess_1)
     t, v = s1.time_series[1].series
     t = np.array(t)
@@ -225,9 +226,9 @@ if __name__ == '__main__':
     plt.plot(t,v)
     plt.plot(t[peaks], v[peaks], 'o', color=xkcd_rgb['dusty rose'])
 
-    st1 = 100
-    st2 = 180
-    delta= 30
+    st1 = 0
+    st2 = 5
+    delta= 50
     i_1 = dex((t>st1-delta) * (t<st1+delta))
     i_2 = dex((t>st2-delta) * (t<st2+delta))
 

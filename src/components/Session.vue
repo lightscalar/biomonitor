@@ -220,7 +220,7 @@
 	}
       },
       channelData(channelRequest) {
-	console.log('New Data Packaged!')
+	// console.log('New Data Packaged!')
 	var data = this.$store.state.currentData
 	for (var k=0; k<data.length; k++) {
 	  if (data[k].physicalChannel == channelRequest) {

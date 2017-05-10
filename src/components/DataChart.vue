@@ -22,7 +22,11 @@
 	chart: null,
 	chartData:[],
 	interval: [],
-	numberChartPoints:300
+	numberChartPoints:300,
+	minY : null,
+	maxY : null,
+	lastTime: Date.now(),
+	maxPtsCandidate: 5
       }	
     },
 
@@ -63,11 +67,45 @@
       },
       resetBuffer: function() {
 	this.doReset = true
-	console.log('Resetting the buffer.')
+	// console.log('Resetting the buffer.')
       }
     },
 
     methods: {
+      updateRange() {
+	var L = this.chartData.length
+	if (L>0) {
+	  var mean = 0
+	  var data = []
+	  var datum = 0
+	  for (var k=0; k<L; k++) {
+	    datum = this.chartData[k].y
+	    mean += datum
+	    data.push(datum) 
+	  }
+	  mean /= L
+	  var std = 0
+	  for (var k=0; k<L; k++){ 
+	    std += (data[k] - mean)**2
+	  }
+	  std /= L
+	  std = Math.sqrt(std)
+	}
+	var factor = 4.0
+	var alpha = 0.95 // inertial smoothing factor
+	var newMax = mean + factor * std
+	var newMin = mean - factor * std
+	if (this.maxY) {
+	  this.maxY = alpha * this.maxY + (1-alpha) * newMax
+	  this.minY = alpha * this.minY + (1-alpha) * newMin
+	} else {
+	  this.maxY = newMax
+	  this.minY = newMin
+	}
+	this.chart.options.axisY.maximum = this.maxY
+	this.chart.options.axisY.minimum = this.minY
+	this.chart.render()
+      },
       fillChartData() {
 	var numPoints = Math.min(this.buffer.length, this.numberChartPoints)
 	for (var k=0; k<numPoints; k++) {
@@ -75,19 +113,27 @@
 	  datum = {x: datum[0], y: datum[1]}
 	  this.chartData.push(datum)
 	}
-	this.chart.render()
+	// this.chart.render()
+	this.updateRange()
       },
       pushData() {
 	var datum = null
 	if (this.stream) { // stream this data to the chart.
-	  var dt = 25 // milliseconds between updates.
-	  var maxPts = Math.min(5, this.buffer.length)
+
+	  // Ostensibly we wil have 50 milliseconds between data pushes, but
+	  // due to the vagaries of the browser, this may occasionally be 
+	  // faster or slower. We therefore scale the number of data points we
+	  // push based on the actual time it took to return.
+	  var dt = 50 // milliseconds between updates.
+	  var deltaTime = Date.now() - this.lastTime
+	  this.maxPtsCandidate = Math.round(deltaTime/50 * 5)
+	  var maxPts = Math.min(this.maxPtsCandidate, this.buffer.length)
+
 	  for (var itr=0; itr<maxPts; itr++) {
 	    datum = this.buffer.shift()
 	    datum = {x: datum[0], y: datum[1]}
 	    if (datum.x > this.chartMax()) {
 	      // We haven't seen this data yet, so add it.
-	      console.log('Pushing data.')
 	      this.chartData.push(datum)
 	    } else {
 	      console.log('Cannot push buffer data into chart.')
@@ -105,11 +151,13 @@
 	  if (this.stream) {
 	    // Grab the next data!
 	    if (dt>0) {
-	      setTimeout(this.pushData, dt)
+	      this.lastTime = Date.now()
+	      setTimeout(this.pushData, 50)
 	    }
  	  }
-	  console.log('Rendering chart!')
-	  this.chart.render()
+	  // console.log('Rendering chart!')
+	  // this.chart.render()
+	  this.updateRange()
 	}
       },
       chartMax() {
@@ -159,7 +207,7 @@
 	  titleFontFamily: 'Avenir Next',
 	  gridThickness: 1,
 	  titleFontSize: 14,
-	  labelFontSize: 14
+	  labelFontSize: 14,
 	},
 	data: [
 	  {
