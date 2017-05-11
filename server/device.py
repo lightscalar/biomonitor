@@ -98,7 +98,7 @@ class BioBoard(threading.Thread):
                 self.info(' > Connected to biomonitor on {:s}.'.format(port))
                 self.port = port
                 self._is_connected = True
-                return
+                return # leave this search; we've found our man.
 
 
     def ping(self, port):
@@ -107,7 +107,7 @@ class BioBoard(threading.Thread):
             try:
                 output = ser.readline()
             except:
-                log.exception(' > Serial connection failed unexpectedly.')
+                self.log.exception(' > Serial connection failed unexpectedly.')
                 output = ''
             parsed = re.search(self.bio_regex, str(output))
             return ((parsed) and (parsed.group(1) == 'B1')) # really legit?

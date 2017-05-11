@@ -507,7 +507,7 @@ class SegmentController(ModelController):
     @property
     def is_full(self):
         '''Are the time/value buffers at capacity?'''
-        return (self.model['itr'] > self.model['segment_size'])
+        return (self.model['itr'] >= self.model['segment_size'])
 
 
     def flush(self):

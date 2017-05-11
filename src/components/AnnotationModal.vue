@@ -137,8 +137,6 @@
     },
 
     mounted() {
-
-      console.log(this.id)
       this.$store.dispatch('getSession', this.id)
     }
   

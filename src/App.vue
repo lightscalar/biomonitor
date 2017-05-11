@@ -56,13 +56,15 @@
     
     methods: {
       checkStatus() {
+	console.log('Check status!')
         this.$store.dispatch('checkStatus')
       }
     },
      
     mounted() {
+      console.log('Mounting!')
       this.checkStatus()
-      // setInterval(this.checkStatus, 2000)
+      // setInterval(this.checkStatus, 5000)
     }
   }
 </script>

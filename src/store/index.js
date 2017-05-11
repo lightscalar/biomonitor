@@ -21,7 +21,9 @@ export default new Vuex.Store({
     sessionList: sessionList,
     currentData: [],
     dataHistory: [],
-    elapsedTime: 0
+    elapsedTime: 0,
+    bpm: {0:[], 1:[], 2:[]},
+    metric: {0:[], 1:[], 2:[]}
   },
 
   // -------- GETTERS --------------------------
@@ -51,8 +53,22 @@ export default new Vuex.Store({
     setSessionList(state, data) {
       state.sessionList = data
     },
+    resetReportables(state, data) {
+      state.bpm = {0:[], 1:[], 2:[]},
+      state.metric = {0:[], 1:[], 2:[]}
+    },
     setCurrentData(state, data) {
       state.currentData = data
+
+      // Update reportable parameters.
+      var nChan = data.length
+      for (var k=0; k<nChan; k++) {
+	var physChan = data[k].physicalChannel
+	var datum = data[k]
+	var timestamp = (datum.maxTime + datum.minTime)/2
+	state.bpm[physChan].push({t: timestamp, bpm: datum.bpm})
+	state.metric[physChan].push({t: timestamp, metric: datum.metric})
+      }
     },
     setDataHistory(state, data) {
       state.dataHistory = data 
@@ -90,6 +106,7 @@ export default new Vuex.Store({
       // Get a specified session.
       api.getResource('session', id).then(function(resp) {
 	context.commit('setCurrentSession', resp.data)
+	context.commit('resetReportables', resp.data)
       })
     },
     listSessions(context) {

@@ -142,8 +142,12 @@ def filter_pulses(pulses, thresh_factor=1.0):
     median_pulse = np.median(pulses)
     dp = pulses - median_pulse
     dp = np.sum(dp**2,1)
-    z_score = dp - dp.mean(0)/dp.std(0)
-    keepers = dex(z_score < 0.5)
+    z_score = np.abs(dp - dp.mean(0))/dp.std(0)
+    keepers = dex((z_score) < thresh_factor)
+    if len(keepers) == 0:
+        best = np.argsort(z_score)
+        keep_nb = np.min(2,len(best))
+        keepers = best[0:keep_nb]
     return pulses[keepers,:]
 
 
@@ -169,6 +173,14 @@ def feature(pulse):
     f = fitter.fit(v)
     f = fitter.resample(t_final)
     return t_final, f.y
+
+
+def estimate_bpm(t,v):
+    '''Estimate heart rate from time series data.'''
+    peaks = scan_for_peaks(t,v,dt=3)
+    bpm = 60/(np.median(np.diff(t[peaks])))
+
+    return bpm
 
 
 def golden_representation(t,v):
@@ -204,6 +216,8 @@ def golden_representation(t,v):
     t_resid = np.linspace(0,1,len(i_))
     a_ = dex((t_resid>0.3) * (t_resid<0.7))
     area = resid[a_].sum() * np.median(np.diff(t_resid))
+
+    # Normalized score, for the moment.
     score = np.min([400*area,100])
 
     return the_pulse, resid, t_resid, score
@@ -211,7 +225,7 @@ def golden_representation(t,v):
 
 if __name__ == '__main__':
 
-    sess_1 = 'Enclosure 2'
+    sess_1 = 'May 10c'
     # sess_1 = 'DUAL 14'
     # sess_1 = 'APR.18_3'
     s1 = grab_session(session_name=sess_1)
@@ -222,13 +236,18 @@ if __name__ == '__main__':
 
     peaks = scan_for_peaks(t,v, dt=3)
 
-    plt.figure(100)
+    plt.figure(100, figsize=(13,5))
     plt.plot(t,v)
     plt.plot(t[peaks], v[peaks], 'o', color=xkcd_rgb['dusty rose'])
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('PVDF Signal (volts)')
+    plt.xlim([37,43])
+    plt.ylim([0.05, 0.15])
+    plt.savefig('plots/peak_finder.png')
 
-    st1 = 0
-    st2 = 5
-    delta= 50
+    st1 = 80
+    st2 = 70
+    delta= 30
     i_1 = dex((t>st1-delta) * (t<st1+delta))
     i_2 = dex((t>st2-delta) * (t<st2+delta))
 
@@ -240,14 +259,26 @@ if __name__ == '__main__':
     p1, r1, tr, area1 = golden_representation(t1, v1)
     p2, r2, tr, area2 = golden_representation(t2, v2)
     
-    plt.figure(200)
-    plt.plot(p1)
-    plt.plot(p2)
+    plt.figure(200, figsize=(7,8))
+    plt.plot(tr, p1[:len(tr)], label='Time t = 20 sec')
+    plt.plot(tr, p2[:len(tr)], label='Time t = 40 sec')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Normalized Pulse Amplitude')
+    plt.title('Golden Pulse Extraction $\pm 20$ seconds')
+    plt.legend(loc=0)
+    plt.savefig('plots/golden_pulse.png')
 
     plt.figure(300)
     plt.plot(tr, r1, label='{:0.2f}'.format(area1))
     plt.plot(tr, r2, label='{:0.2f}'.format(area2))
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Residual Features')
+    plt.title('Residual Reflection Feature $\pm 20$ seconds')
     plt.legend(loc=0)
+    plt.legend(loc=0)
+    plt.savefig('plots/residuals.png')
+
+    bpm_ = estimate_bpm(t,v)
     
     if False:
         delta = 20 # seconds

@@ -14,6 +14,7 @@ from ipdb import set_trace as debug
 from analysis import *
 from sig_proc import *
 from bson import ObjectId
+from processor import *
 
 
 # Configure logging.
@@ -176,11 +177,33 @@ class StreamData(Resource):
                 except:
                     t,v = [],[]
 
-            # Downsample data for display purposes.
-            t_,v_ = downsample(t, v, target_frequency)
+            if len(t)>0:
+                # Downsample data for display purposes.
+                t_,v_ = downsample(t, v, target_frequency)
 
-            # Add data, sampling rate, and current time, etc.
+                # For demonstration purposes, compute quanities of interest.
+                # This is super inefficient! Don't do this in general. Cache!
+                t_all, v_all = series.series
+                t_all = np.array(t_all)
+                v_all = np.array(v_all)
+                t_cur = np.mean(t)
+                delta_t = 20
+                idx = dex((t_all>t_cur-delta_t)*(t_all<t_cur+delta_t))
+                bpm = estimate_bpm(t_all[idx], v_all[idx])
+                # print('LEN: {:d}'.format( len(t_all)))
+                # print('t: {:f}'.format( t_cur))
+                _, _, _, metric = golden_representation(t_all[idx],\
+                        v_all[idx])
+            else:
+                t_cur = -1
+                bpm = 0
+                metric = 0
+                t_, v_ = t,v
+                
+            # Add data, sampling rate, current time, beats per minute, etc.
             time_series['data'] = list(zip(t_,v_))
+            time_series['bpm'] = bpm
+            time_series['metric'] = metric
             time_series['duration'], time_series['sampling_rate'] = \
                     series.props
             if len(t)>0:

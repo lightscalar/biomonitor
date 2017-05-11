@@ -77,6 +77,20 @@
 		{{channelSamplingRate(channel.physicalChannel) | 
 		sprintf('%.1f')}} Hz
 	      </v-chip>
+	      <v-chip class="blue-grey lighten-1 white--text pa-3">
+		<v-avatar class='white--text'>
+		  <v-icon>favorite</v-icon>
+		</v-avatar>
+		{{channelHeartRate(channel.physicalChannel) | 
+		sprintf('%.1f')}} bpm
+	      </v-chip>
+	      <v-chip class="blue-grey lighten-1 white--text pa-3">
+		<v-avatar class='white--text'>
+		  <v-icon>healing</v-icon>
+		</v-avatar>
+		{{channelMetric(channel.physicalChannel) | 
+		sprintf('%.1f')}} %
+	      </v-chip>
 	      <v-spacer/>
 	    </v-card-title>
 	    <v-card-row class='ma-4'>
@@ -218,6 +232,36 @@
 	    return 0
 	  }
 	}
+      },
+      channelHeartRate(channelRequest) {
+	var bpm = this.$store.state.bpm[channelRequest]
+	var minDelta = Number.POSITIVE_INFINITY
+	var currentBPM = 0
+	var winningTime = 0
+	for (var k=0; k<bpm.length; k++) {
+	  var dt = Math.abs(this.$store.state.elapsedTime - bpm[k].t)
+	  if (dt < minDelta) {
+	    currentBPM = bpm[k].bpm
+	    winningTime = bpm[k].t
+	    minDelta = dt
+	  }
+	}
+	return currentBPM
+      },
+      channelMetric(channelRequest) {
+	var metric = this.$store.state.metric[channelRequest]
+	var minDelta = Number.POSITIVE_INFINITY
+	var currentMetric = 0
+	var winningTime = 0
+	for (var k=0; k<metric.length; k++) {
+	  var dt = Math.abs(this.$store.state.elapsedTime - metric[k].t)
+	  if (dt < minDelta) {
+	    currentMetric = metric[k].metric
+	    winningTime = metric[k].t
+	    minDelta = dt
+	  }
+	}
+	return currentMetric
       },
       channelData(channelRequest) {
 	// console.log('New Data Packaged!')
